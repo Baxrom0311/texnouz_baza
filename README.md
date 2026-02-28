@@ -57,75 +57,75 @@ Referential tekshiruv (inferred linklar bo'yicha) natija:
 
 ```mermaid
 erDiagram
-    TABOPERATORTYPE ||--o{ TABOPERATOR : "TypeID <- Type"
-    TABOPERATOR ||--o{ TABCHANGE : "OperatorID"
-    TABCHANGE ||--o{ TABMAINDATA : "ChangeID"
-    TABOPERATOR ||--o{ TABMAINDATA : "OperatorID"
-    TABTRK ||--o{ TABMAINDATA : "PistoletID"
-    TABCHANGE ||--o{ TABSUMMCOUNTER : "ChangeID (inferred)"
-    TABTRK ||--o{ TABSUMMCOUNTER : "PisNum (inferred)"
-    TABOPERATOR ||--o{ TABGASTYPE : "OperatorID (optional)"
+    TABOPERATORTYPE ||--o{ TABOPERATOR : operator_type
+    TABOPERATOR ||--o{ TABCHANGE : operator
+    TABCHANGE ||--o{ TABMAINDATA : change
+    TABOPERATOR ||--o{ TABMAINDATA : operator
+    TABTRK ||--o{ TABMAINDATA : pistolet
+    TABCHANGE ||--o{ TABSUMMCOUNTER : change_inferred
+    TABTRK ||--o{ TABSUMMCOUNTER : pisnum_inferred
+    TABOPERATOR ||--o{ TABGASTYPE : operator_optional
 
     TABCONFIG {
       bigint id PK
-      varchar key
-      varchar val
+      string key
+      string val
     }
 
     TABOPERATORTYPE {
-      bigint TypeID PK
-      varchar TypeName
+      bigint type_id PK
+      string type_name
     }
 
     TABOPERATOR {
-      bigint OperatorID PK
-      varchar Name PK
-      varchar Password UQ
-      int Type
+      bigint operator_id PK
+      string name UK
+      string password UK
+      int type_id FK
     }
 
     TABCHANGE {
-      bigint ChangeID PK
-      timestamp StartDateTime
-      timestamp EndDateTime
-      int OperatorID
-      boolean ClosedFlag
+      bigint change_id PK
+      datetime start_datetime
+      datetime end_datetime
+      int operator_id FK
+      bool closed_flag
     }
 
     TABTRK {
-      bigint Index PK
-      int TRKID
-      int PistoletID
-      int Half
+      bigint idx PK
+      int trk_id
+      int pistolet_id
+      int half
     }
 
     TABGASTYPE {
-      bigint Num PK
-      varchar GasName
-      int Price
-      int Dencity
-      boolean IsMetan
-      int OperatorID
+      bigint num PK
+      string gas_name
+      int price
+      int dencity
+      bool is_metan
+      int operator_id FK
     }
 
     TABMAINDATA {
-      bigint DataID PK
-      int ChangeID
-      int PistoletID
-      int OperatorID
-      int Liters
-      timestamp DateTime
-      boolean SYNC
+      bigint data_id PK
+      int change_id FK
+      int pistolet_id FK
+      int operator_id FK
+      int liters
+      datetime date_time
+      bool sync_flag
     }
 
     TABSUMMCOUNTER {
-      bigint DataID PK
-      int ChangeID
-      int PisNum
-      timestamp EndDateTime
-      bigint BeginCounter
-      bigint EndCounter
-      boolean SYNC
+      bigint data_id PK
+      int change_id FK
+      int pis_num FK
+      datetime end_datetime
+      bigint begin_counter
+      bigint end_counter
+      bool sync_flag
     }
 ```
 
@@ -363,4 +363,3 @@ UNION ALL SELECT 'taboperatortype', count(*) FROM taboperatortype
 UNION ALL SELECT 'tabsummcounter', count(*) FROM tabsummcounter
 UNION ALL SELECT 'tabtrk', count(*) FROM tabtrk;
 ```
-
