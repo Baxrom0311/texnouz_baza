@@ -1,59 +1,33 @@
-# texnouz_copy Database Analysis
+# MMS Bridge (`texnouz_copy` -> `mms_localhost`)
 
-## 1) Umumiy ma'lumot
+Bu loyiha local PostgreSQL bazadagi `public.tabmaindata` ma'lumotlarini remote serverdagi
+`public.operation_operation_texnouz` jadvaliga uzluksiz sync qilish uchun yozilgan.
 
-Bu repository ichidagi backup fayllar PostgreSQL bazasiga tegishli:
+## 1) Baza Tuzilmasi (qisqacha)
 
-- `texnouz_copy.dump` (PostgreSQL custom dump)
-- `texnouz_copy.sql` (plain SQL dump)
+Manba baza (`texnouz_copy`, `public` schema) asosiy jadvallari:
 
-Joriy tahlil quyidagi holatga asoslangan:
+| Jadval | Vazifasi |
+|---|---|
+| `tabmaindata` | Asosiy tranzaksiya yozuvlari |
+| `tabchange` | Smena ochilish/yopilish holatlari |
+| `tabtrk` | TRK/pistolet mapping konfiguratsiyasi |
+| `tabgastype` | Gaz turi va parametrlar |
+| `taboperator` | Operatorlar |
+| `taboperatortype` | Operator rollari |
+| `tabconfig` | Dastur konfiguratsiya kalitlari |
+| `tabsummcounter` | Counter agregat yozuvlari |
 
-- DB nomi: `texnouz_copy`
-- Restore qilingan sana: 2026-02-28
-- PostgreSQL client/server: `17.x` (local)
-- Dumpdan olingan asl ma'lumot:
-  - Dump boshlangan vaqt: `2026-02-22 14:49:39`
-  - Source DB version: `10.5`
-  - Dump tool version: `17.6`
-- Joriy DB hajmi: `51 MB`
-- `public` schemadagi jadvallar soni: `8`
+Remote baza (`mms_localhost`)da sync uchun ishlatiladigan jadval:
 
-## 2) Schema qisqacha ko'rinishi
+- `public.operation_operation_texnouz`
 
-| Jadval | Rows (exact) | Hajm | Asosiy vazifa (inferred) |
-|---|---:|---:|---|
-| `tabmaindata` | 250381 | 43 MB | Asosiy tranzaksiya/sotuv yozuvlari |
-| `tabchange` | 829 | 128 kB | Smena (ochilish-yopilish) tarixlari |
-| `tabtrk` | 10 | 24 kB | TRK/pistolet mapping konfiguratsiyasi |
-| `tabgastype` | 3 | 24 kB | Gaz turlari va narx/density sozlamalari |
-| `taboperator` | 4 | 56 kB | Operator foydalanuvchilari |
-| `taboperatortype` | 7 | 24 kB | Operator rollari (type dictionary) |
-| `tabconfig` | 13 | 24 kB | Sistem konfiguratsiya kalit-qiymatlari |
-| `tabsummcounter` | 0 | 8192 bytes | Summ counter agregat jadvali (hozir bo'sh) |
+Eslatma:
 
-## 3) Bog'lanishlar (ER) va Diagramma
+- Manba sxemada physical `FOREIGN KEY` constraintlar yo'q.
+- Bog'lanishlar ustun nomlari bo'yicha infer qilinadi.
 
-Muhim fakt: bazada **physical foreign key** constraintlar aniqlanmagan (`0 ta FK`).
-Shunga qaramay, ustun nomlari va ma'lumotlar mosligidan kelib chiqib quyidagi bog'lanishlar ishlatiladi (inferred):
-
-- `taboperator.Type -> taboperatortype.TypeID`
-- `tabchange.OperatorID -> taboperator.OperatorID`
-- `tabmaindata.ChangeID -> tabchange.ChangeID`
-- `tabmaindata.OperatorID -> taboperator.OperatorID`
-- `tabmaindata.PistoletID -> tabtrk.PistoletID`
-- `tabsummcounter.ChangeID -> tabchange.ChangeID` (jadval bo'sh, inferred)
-- `tabsummcounter.PisNum -> tabtrk.PistoletID` (jadval bo'sh, inferred)
-- `tabgastype.OperatorID -> taboperator.OperatorID` (amalda qiymatlar `0`)
-
-Referential tekshiruv (inferred linklar bo'yicha) natija:
-
-- `tabmaindata.ChangeID` orphan: `0`
-- `tabmaindata.OperatorID` orphan: `0`
-- `tabchange.OperatorID` orphan: `0`
-- `taboperator.Type` orphan: `0`
-
-### Mermaid ER diagram
+## 2) ER Diagram
 
 ```mermaid
 erDiagram
@@ -81,14 +55,14 @@ erDiagram
       bigint operator_id PK
       string name UK
       string password UK
-      int type_id FK
+      int type_id
     }
 
     TABCHANGE {
       bigint change_id PK
       datetime start_datetime
       datetime end_datetime
-      int operator_id FK
+      int operator_id
       bool closed_flag
     }
 
@@ -105,23 +79,25 @@ erDiagram
       int price
       int dencity
       bool is_metan
-      int operator_id FK
+      int operator_id
     }
 
     TABMAINDATA {
       bigint data_id PK
-      int change_id FK
-      int pistolet_id FK
-      int operator_id FK
+      int change_id
+      int pistolet_id
+      int operator_id
       int liters
+      int order_liters
+      float order_money
       datetime date_time
       bool sync_flag
     }
 
     TABSUMMCOUNTER {
       bigint data_id PK
-      int change_id FK
-      int pis_num FK
+      int change_id
+      int pis_num
       datetime end_datetime
       bigint begin_counter
       bigint end_counter
@@ -129,237 +105,120 @@ erDiagram
     }
 ```
 
-## 4) Data profiling (amaldagi ma'lumot)
+## 3) Sync Ishlash Prinsipi
 
-### Vaqt oralig'i
+`main.py` ichidagi asosiy rule:
 
-- `tabmaindata.DateTime`: `2024-07-17 18:36:31.441` -> `2026-02-22 14:37:16.085`
-- `tabchange.StartDateTime`: `2024-07-17 18:14:06.466` -> `2026-02-22 07:25:45.624`
+- `local`: `public.tabmaindata`
+- `remote`: `public.operation_operation_texnouz`
+- mapping: 1:1 (ustun nomlari bir xil)
+- conflict strategiya: `ON CONFLICT ("DataID") DO UPDATE`
+- incremental cursor: `DataID`
+- vaqt filtri: `DateTime >= SYNC_FROM_DATETIME` (default: `2026-03-01 00:00:00`)
+- state saqlash jadvali: `public.sync_bridge_state`
 
-### Asosiy agregatlar (`tabmaindata`)
+Bu yondashuv quyidagilarni ta'minlaydi:
 
-- Jami yozuv: `250381`
-- Unique `ChangeID`: `826`
-- Unique `OperatorID`: `3`
-- Unique `PistoletID`: `10`
-- Jami litr (`Liters` summasi): `537119685`
-- Jami to'lov komponentlari (`MoneyCash + MoneyPlastik + MoneyBank + MoneyTalon`): `21509441320.00`
-- O'rtacha `Price`: `4055.51`
+- qayta ishga tushganda cursor'dan davom etish;
+- bir xil yozuv qayta kelganda dublikat bo'lmasligi;
+- network uzilishi bo'lsa retry/backoff bilan davom etish.
 
-### Smena holati (`tabchange`)
+## 4) Tayyorlash
 
-- `ClosedFlag = true`: `828`
-- `ClosedFlag = false`: `1`
+1. Python 3.10+ o'rnating.
+2. Virtual muhit yarating.
+3. Dependency o'rnating.
 
-### TRK/Pistolet konfiguratsiyasi
+```bash
+python -m venv .venv
+# Windows:
+.venv\Scripts\pip install psycopg2-binary
+# macOS/Linux:
+.venv/bin/pip install psycopg2-binary
+```
 
-`tabtrk`da 10 ta mapping bor, barchasi `TRKID=13`, `portName='COM4'`, `PistoletID`lar:
-`10, 15, 20, 25, 30, 35, 40, 45, 50, 55`
+Remote jadvalni yaratish (agar yo'q bo'lsa):
 
-### Gaz turlari (`tabgastype`)
+```bash
+psql -h <remote_host> -U <remote_user> -d <remote_db> -f create_operation_operation_texnouz.sql
+```
 
-| Num | GasName | Price | Dencity | IsMetan | OperatorID |
-|---:|---|---:|---:|---|---:|
-| 2 | `+` | 4500 | 0 | false | 0 |
-| 3 | `+` | 4500 | 0 | false | 0 |
-| 13 | `MT2` | 5200 | 685 | true | 0 |
+## 5) Ishga Tushirish
 
-### Operator rollari (`taboperatortype`)
+Bir martalik sync:
 
-`1: Не работает`, `2: Администратор`, `3: Оператор`, `4: Настройщик`,
-`5: Экономист`, `6: Бухгалтер`, `7: Админ офиса`
+```bash
+python main.py --once --batch-size 1000
+```
 
-### Konfiguratsiya kalitlari (`tabconfig`)
+So'nggi `N` ta yozuvni test sync:
 
-`port`, `rep_sendmail`, `rep_sendtime`, `rep_lastsend`, `scalesize`,
-`rep_issend`, `rep_password`, `comtimeout`, `ShowMass`, `ShowDencity`,
-`ShowPressure`, `theme`, `comspeed`
+```bash
+python main.py --last-n 10
+```
 
-Eslatma: `rep_password` kaliti mavjud, bu jadvalda sezgir ma'lumot bo'lishi mumkin.
+Uzluksiz bridge rejimi:
 
-## 5) Data Dictionary (to'liq ustunlar)
+```bash
+python main.py
+```
 
-### `tabchange`
+Foydali buyruqlar:
 
-| Ustun | Tip | NULL | Default | Izoh |
-|---|---|---|---|---|
-| `ChangeID` | `bigint` | NO | `nextval("tabChange_ChangeID_seq")` | PK, smena ID |
-| `StartDateTime` | `timestamp` | NO | - | Smena boshlanishi |
-| `EndDateTime` | `timestamp` | NO | `now()` | Smena tugashi |
-| `OperatorID` | `integer` | NO | - | Operator (inferred FK) |
-| `ClosedFlag` | `boolean` | NO | `false` | Smena yopilgan/yo'q |
-| `CloseType` | `integer` | NO | `0` | Yopish turi kodi |
-| `OpenCounter` | `integer` | YES | `0` | Ochilish counter qiymati |
-| `SYNC` | `integer` | NO | `0` | Sync holati (integer flag) |
+```bash
+python main.py --list-local-tables
+python main.py --list-remote-tables
+```
 
-Constraintlar:
-- PK: `tabChange_pkey (ChangeID)`
+## 6) Konfiguratsiya (`ENV`)
 
-### `tabconfig`
+`main.py` quyidagi env o'zgaruvchilarni o'qiydi:
 
-| Ustun | Tip | NULL | Default | Izoh |
-|---|---|---|---|---|
-| `id` | `bigint` | NO | `nextval(config_id_seq)` | PK |
-| `key` | `varchar` | NO | - | Konfiguratsiya kaliti |
-| `val` | `varchar` | YES | - | Konfiguratsiya qiymati |
+| O'zgaruvchi | Maqsad | Default |
+|---|---|---|
+| `LOCAL_DB_NAME` | Local DB nomi | `texnouz_copy` |
+| `LOCAL_DB_USER` | Local DB user | `baxrom` |
+| `LOCAL_DB_PASSWORD` | Local DB parol | `None` |
+| `LOCAL_DB_HOST` | Local DB host | Windows: `127.0.0.1`, boshqalar: `/tmp` |
+| `LOCAL_DB_PORT` | Local DB port | `5432` |
+| `REMOTE_DB_NAME` | Remote DB nomi | `mms_localhost` |
+| `REMOTE_DB_USER` | Remote DB user | `sync_user1` |
+| `REMOTE_DB_PASSWORD` | Remote DB parol | `sync_pass12345` |
+| `REMOTE_DB_HOST` | Remote DB host | `3.122.18.70` |
+| `REMOTE_DB_PORT` | Remote DB port | `5432` |
+| `SYNC_FROM_DATETIME` | Sync boshlanish vaqti | `2026-03-01 00:00:00` |
+| `SYNC_BATCH_SIZE` | Batch hajmi | `1000` |
+| `SYNC_INTERVAL_SECONDS` | Loop oralig'i | `10` |
+| `SYNC_RETRY_BASE_SECONDS` | Retry boshlang'ich kutish | `5` |
+| `SYNC_RETRY_MAX_SECONDS` | Retry maksimal kutish | `300` |
 
-Constraintlar:
-- PK: `config_pkey (id)`
+## 7) Windows Production (NSSM)
 
-### `tabgastype`
+Tayyor scriptlar:
 
-| Ustun | Tip | NULL | Default | Izoh |
-|---|---|---|---|---|
-| `Num` | `bigint` | NO | `nextval("tabGasType_Num_seq")` | PK |
-| `GasName` | `varchar` | NO | - | Gaz nomi |
-| `Price` | `integer` | NO | - | Narx |
-| `Dencity` | `integer` | NO | - | Zichlik (`Density`) |
-| `IsMetan` | `boolean` | NO | `true` | Metan flag |
-| `Updated` | `timestamp` | NO | `now()` | So'nggi update |
-| `OperatorID` | `integer` | NO | `0` | Operator (optional/inferred) |
+- `ops/windows/build_exe.ps1` - `main.py` dan `dist/mms_bridge.exe` build qiladi.
+- `ops/windows/install_service.ps1` - NSSM service yaratadi/yangilaydi.
+- `ops/windows/uninstall_service.ps1` - service ni o'chiradi.
+- `ops/windows/README.md` - bosqichma-bosqich yo'riqnoma.
 
-Constraintlar:
-- PK: `tabGasType_pkey (Num)`
+Tavsiya:
 
-### `tabmaindata`
+- bridge'ni oddiy CMD oynada emas, albatta NSSM service sifatida yurgizing;
+- loglarni muntazam tekshirib boring (`logs/mms_bridge.out.log`, `logs/mms_bridge.err.log`).
 
-| Ustun | Tip | NULL | Default | Izoh |
-|---|---|---|---|---|
-| `DataID` | `bigint` | NO | `nextval("tabMainData_DataID_seq")` | PK |
-| `ChangeID` | `integer` | NO | `0` | Smena (inferred FK) |
-| `PistoletID` | `integer` | NO | `0` | Pistolet/TRK kanali |
-| `OperatorID` | `integer` | NO | `0` | Operator (inferred FK) |
-| `Liters` | `integer` | NO | `0` | Hajm (litr) |
-| `OrderLiters` | `integer` | NO | `0` | Buyurtma litr |
-| `OrderMoney` | `double precision` | NO | `0` | Buyurtma summasi |
-| `Price` | `double precision` | NO | `0` | Narx |
-| `Discount` | `double precision` | NO | `0` | Chegirma |
-| `Mass` | `integer` | NO | `0` | Massa |
-| `Dencity` | `integer` | NO | `0` | Zichlik |
-| `Pressure` | `integer` | NO | `0` | Bosim |
-| `CarNumber` | `varchar` | NO | `0` | Avto raqam |
-| `DateTime` | `timestamp` | NO | `now()` | Tranzaksiya vaqti |
-| `GasMetan` | `integer` | NO | `0` | Gaz turi kodi |
-| `SYNC` | `boolean` | NO | `false` | Sync holati |
-| `MoneyCash` | `double precision` | NO | `0` | Naqd to'lov |
-| `MoneyPlastik` | `double precision` | NO | `0` | Plastik karta |
-| `MoneyBank` | `double precision` | NO | `0` | Bank to'lovi |
-| `MoneyTalon` | `double precision` | NO | `0` | Talon to'lovi |
-| `EndCode` | `integer` | YES | - | Yakun kodi |
-
-Constraintlar:
-- PK: `tabMainData_pkey (DataID)`
-
-### `taboperator`
-
-| Ustun | Tip | NULL | Default | Izoh |
-|---|---|---|---|---|
-| `OperatorID` | `bigint` | NO | `nextval("tabOperator_OperatorID_seq")` | PK qismi |
-| `Name` | `varchar` | NO | - | PK qismi, login/nom |
-| `Password` | `varchar` | NO | - | Unique, parol maydoni |
-| `Address` | `varchar` | YES | - | Manzil |
-| `Phone` | `varchar` | YES | - | Telefon |
-| `Date` | `timestamp` | YES | - | Sana |
-| `Type` | `integer` | NO | - | Operator roli (inferred FK) |
-
-Constraintlar:
-- PK: `tabOperator_pkey (OperatorID, Name)`
-- UNIQUE: `MyUniqueFields (Password)`
-- UNIQUE: `UniqName (Name)`
-
-### `taboperatortype`
-
-| Ustun | Tip | NULL | Default | Izoh |
-|---|---|---|---|---|
-| `TypeID` | `bigint` | NO | `nextval("tabOperatorType_TypeID_seq")` | PK |
-| `TypeName` | `varchar` | NO | - | Rol nomi |
-
-Constraintlar:
-- PK: `tabOperatorType_pkey (TypeID)`
-
-### `tabsummcounter`
-
-| Ustun | Tip | NULL | Default | Izoh |
-|---|---|---|---|---|
-| `DataID` | `bigint` | NO | `nextval("tabSummCounter_DataID_seq")` | PK |
-| `ChangeID` | `integer` | NO | - | Smena ID (inferred FK) |
-| `PisNum` | `integer` | NO | - | Pistolet raqami (inferred FK) |
-| `EndDateTime` | `timestamp` | NO | - | Yakun vaqti |
-| `BeginCounter` | `bigint` | NO | - | Boshlang'ich counter |
-| `EndCounter` | `bigint` | NO | - | Yakuniy counter |
-| `SYNC` | `boolean` | NO | - | Sync holati |
-
-Constraintlar:
-- PK: `tabSummCounter_pkey (DataID)`
-
-### `tabtrk`
-
-| Ustun | Tip | NULL | Default | Izoh |
-|---|---|---|---|---|
-| `Index` | `bigint` | NO | `nextval("tabTRK_Index_seq")` | PK |
-| `TRKID` | `integer` | NO | - | TRK identifikatori |
-| `PistoletID` | `integer` | NO | - | Pistolet identifikatori |
-| `Half` | `integer` | NO | - | Kanal/yarim liniya belgisi |
-| `SumLitr` | `bigint` | NO | `0` | Umumiy litr counter |
-| `SmenaLitr` | `integer` | YES | - | Smena litr counter |
-| `pistName` | `varchar` | YES | - | Pistolet nomi |
-| `trkType` | `integer` | YES | `1` | TRK turi |
-| `portName` | `varchar` | YES | - | COM port nomi |
-
-Constraintlar:
-- PK: `tabTRK_pkey (Index)`
-
-## 6) Indekslar
-
-Mavjud indekslar asosan PK/UNIQUE indekslardan iborat:
-
-- `tabchange`: `tabChange_pkey`
-- `tabconfig`: `config_pkey`
-- `tabgastype`: `tabGasType_pkey`
-- `tabmaindata`: `tabMainData_pkey`
-- `taboperator`: `tabOperator_pkey`, `MyUniqueFields`, `UniqName`
-- `taboperatortype`: `tabOperatorType_pkey`
-- `tabsummcounter`: `tabSummCounter_pkey`
-- `tabtrk`: `tabTRK_pkey`
-
-`tabmaindata` kabi katta jadvalda (`250k+` row) izlash/filtrlash uchun qo'shimcha indekslar
-(`DateTime`, `ChangeID`, `OperatorID`, `PistoletID`) yo'qligi performancega ta'sir qilishi mumkin.
-
-## 7) Risklar va takliflar
-
-1. **FK constraintlar yo'q**
-   - Hozir data mosligi yaxshi, lekin kelajakda noto'g'ri yozuvlar kirishi mumkin.
-   - Tavsiya: inferred bog'lanishlarga FK constraint qo'shish.
-
-2. **Parol saqlanishi**
-   - `taboperator.Password` unique text sifatida turibdi.
-   - Tavsiya: plain text o'rniga hash (`bcrypt/argon2`) saqlash.
-
-3. **`SYNC` tiplarida nomuvofiqlik**
-   - `tabchange.SYNC` = `integer`, `tabmaindata.SYNC` = `boolean`.
-   - Tavsiya: yagona data model (bir xil tip)ga keltirish.
-
-4. **Composite PK (`taboperator`)**
-   - PK: (`OperatorID`, `Name`) bo'lgani uchun relationlar murakkablashishi mumkin.
-   - Tavsiya: faqat `OperatorID` ni PK qoldirish.
-
-5. **Naming va imlo**
-   - `Dencity` ehtimol `Density`.
-   - Tavsiya: schema naming standard joriy qilish.
-
-## 8) Tezkor tekshiruv so'rovlari
+## 8) Tezkor SQL Tekshiruv
 
 ```sql
--- Jadvallar ro'yxati
-\dt
+-- Remote cursor/state holati
+SELECT rule_name, last_cursor, updated_at
+FROM public.sync_bridge_state;
 
--- Har bir jadval row count
-SELECT 'tabmaindata', count(*) FROM tabmaindata
-UNION ALL SELECT 'tabchange', count(*) FROM tabchange
-UNION ALL SELECT 'tabconfig', count(*) FROM tabconfig
-UNION ALL SELECT 'tabgastype', count(*) FROM tabgastype
-UNION ALL SELECT 'taboperator', count(*) FROM taboperator
-UNION ALL SELECT 'taboperatortype', count(*) FROM taboperatortype
-UNION ALL SELECT 'tabsummcounter', count(*) FROM tabsummcounter
-UNION ALL SELECT 'tabtrk', count(*) FROM tabtrk;
+-- Remote jadvaldagi eng oxirgi yozuvlar
+SELECT "DataID", "DateTime"
+FROM public.operation_operation_texnouz
+ORDER BY "DataID" DESC
+LIMIT 20;
+
+-- Server vaqtini tekshirish
+SELECT now(), current_setting('TimeZone');
 ```
