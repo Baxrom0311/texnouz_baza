@@ -1,15 +1,21 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$NssmExe,
+    [string]$NssmExe = "nssm",
 
     [string]$ServiceName = "MMSBridge"
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path $NssmExe)) {
-    throw "NSSM topilmadi: $NssmExe"
+if (Test-Path $NssmExe) {
+    $NssmExe = (Resolve-Path $NssmExe).Path
+}
+else {
+    $nssmCmd = Get-Command $NssmExe -ErrorAction SilentlyContinue
+    if ($null -eq $nssmCmd) {
+        throw "NSSM topilmadi. Path yoki command bering: $NssmExe"
+    }
+    $NssmExe = $nssmCmd.Source
 }
 
 function Invoke-Nssm {

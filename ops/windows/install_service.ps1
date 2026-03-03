@@ -1,22 +1,22 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$NssmExe,
+    [string]$NssmExe = "nssm",
 
     [string]$ServiceName = "MMSBridge",
-    [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path,
+    [string]$ProjectRoot = "",
     [string]$AppPath = "",
+    [string]$AppParameters = $null,
     [string]$LogsDir = "",
 
-    [string]$LocalDbName = "texnouz_copy",
-    [string]$LocalDbUser = "baxrom",
+    [string]$LocalDbName = "texnouz",
+    [string]$LocalDbUser = "postgres",
     [string]$LocalDbPassword = "",
     [string]$LocalDbHost = "127.0.0.1",
     [int]$LocalDbPort = 5432,
 
     [string]$RemoteDbName = "mms_localhost",
     [string]$RemoteDbUser = "sync_user1",
-    [string]$RemoteDbPassword = "",
+    [string]$RemoteDbPassword = "sync_pass12345",
     [string]$RemoteDbHost = "3.122.18.70",
     [int]$RemoteDbPort = 5432,
 
@@ -27,8 +27,29 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path $NssmExe)) {
-    throw "NSSM topilmadi: $NssmExe"
+if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+    $scriptDir = $PSScriptRoot
+    if ([string]::IsNullOrWhiteSpace($scriptDir) -and $PSCommandPath) {
+        $scriptDir = Split-Path -Parent $PSCommandPath
+    }
+    if ([string]::IsNullOrWhiteSpace($scriptDir) -and $MyInvocation.MyCommand.Path) {
+        $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    }
+    if ([string]::IsNullOrWhiteSpace($scriptDir)) {
+        $scriptDir = (Get-Location).Path
+    }
+    $ProjectRoot = (Resolve-Path (Join-Path $scriptDir "..\..")).Path
+}
+
+if (Test-Path $NssmExe) {
+    $NssmExe = (Resolve-Path $NssmExe).Path
+}
+else {
+    $nssmCmd = Get-Command $NssmExe -ErrorAction SilentlyContinue
+    if ($null -eq $nssmCmd) {
+        throw "NSSM topilmadi. Path yoki command bering: $NssmExe"
+    }
+    $NssmExe = $nssmCmd.Source
 }
 
 if ([string]::IsNullOrWhiteSpace($AppPath)) {
@@ -61,7 +82,9 @@ if ($null -eq $existingService) {
 
 Invoke-Nssm set $ServiceName Application $AppPath
 Invoke-Nssm set $ServiceName AppDirectory $ProjectRoot
-Invoke-Nssm set $ServiceName AppParameters ""
+if (-not [string]::IsNullOrWhiteSpace($AppParameters)) {
+    Invoke-Nssm set $ServiceName AppParameters $AppParameters
+}
 Invoke-Nssm set $ServiceName Start SERVICE_AUTO_START
 Invoke-Nssm set $ServiceName DependOnService Tcpip
 Invoke-Nssm set $ServiceName ObjectName LocalSystem
