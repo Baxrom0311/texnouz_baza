@@ -31,6 +31,8 @@ logs/
 # Local env / secrets
 .env
 .env.*
+*.dump
+texnouz_copy.sql
 
 # IDE / editor
 .idea/

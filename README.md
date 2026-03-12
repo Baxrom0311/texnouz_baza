@@ -204,7 +204,7 @@ Tayyor scriptlar:
 Tavsiya:
 
 - bridge'ni oddiy CMD oynada emas, albatta NSSM service sifatida yurgizing;
-- loglarni muntazam tekshirib boring (`logs/mms_bridge.out.log`, `logs/mms_bridge.err.log`).
+- loglarni muntazam tekshirib boring (`C:\Program Files\MMSBridge\logs\mms_bridge.out.log`, `C:\Program Files\MMSBridge\logs\mms_bridge.err.log`).
 
 ## 8) Tezkor SQL Tekshiruv
 

@@ -26,8 +26,23 @@ powershell -ExecutionPolicy Bypass -File .\ops\windows\install_service.ps1 `
   -SyncFromDateTime "2026-03-01 00:00:00"
 ```
 
+Default install joyi:
+
+- `C:\Program Files\MMSBridge\mms_bridge.exe`
+- `C:\Program Files\MMSBridge\logs\mms_bridge.out.log`
+- `C:\Program Files\MMSBridge\logs\mms_bridge.err.log`
+
+Kerak bo'lsa custom papka:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\install_service.ps1 `
+  -NssmExe "C:\tools\nssm\nssm.exe" `
+  -InstallDir "D:\Services\MMSBridge"
+```
+
 Script idempotent:
 - service bo'lmasa yaratadi,
+- `dist\mms_bridge.exe` ni install papkaga ko'chiradi,
 - bo'lsa config ni yangilaydi,
 - oxirida qayta ishga tushiradi.
 
@@ -38,8 +53,8 @@ Get-Service MMSBridge
 ```
 
 Loglar:
-- `logs\mms_bridge.out.log`
-- `logs\mms_bridge.err.log`
+- `C:\Program Files\MMSBridge\logs\mms_bridge.out.log`
+- `C:\Program Files\MMSBridge\logs\mms_bridge.err.log`
 
 ## 4) Uninstall
 
@@ -47,6 +62,14 @@ Loglar:
 Set-Location C:\path\to\mms
 powershell -ExecutionPolicy Bypass -File .\ops\windows\uninstall_service.ps1 `
   -NssmExe "C:\tools\nssm\nssm.exe"
+```
+
+Install papkani ham o'chirish kerak bo'lsa:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\uninstall_service.ps1 `
+  -NssmExe "C:\tools\nssm\nssm.exe" `
+  -RemoveInstallDir
 ```
 
 ## Muhim env/config

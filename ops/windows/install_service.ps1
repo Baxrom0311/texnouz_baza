@@ -4,12 +4,13 @@ param(
 
     [string]$ServiceName = "MMSBridge",
     [string]$ProjectRoot = "",
+    [string]$InstallDir = "",
     [string]$AppPath = "",
     [string]$AppParameters = $null,
     [string]$LogsDir = "",
 
-    [string]$LocalDbName = "texnouz",
-    [string]$LocalDbUser = "postgres",
+    [string]$LocalDbName = "texnouz_copy",
+    [string]$LocalDbUser = "baxrom",
     [string]$LocalDbPassword = "",
     [string]$LocalDbHost = "127.0.0.1",
     [int]$LocalDbPort = 5432,
@@ -26,6 +27,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Get-DefaultInstallDir {
+    $programFiles = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+    if ([string]::IsNullOrWhiteSpace($programFiles)) {
+        throw "Program Files papkasi aniqlanmadi."
+    }
+    return Join-Path $programFiles $ServiceName
+}
 
 if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
     $scriptDir = $PSScriptRoot
@@ -52,21 +61,6 @@ else {
     $NssmExe = $nssmCmd.Source
 }
 
-if ([string]::IsNullOrWhiteSpace($AppPath)) {
-    $AppPath = Join-Path $ProjectRoot "dist\mms_bridge.exe"
-}
-if (-not (Test-Path $AppPath)) {
-    throw "Exe topilmadi: $AppPath"
-}
-
-if ([string]::IsNullOrWhiteSpace($LogsDir)) {
-    $LogsDir = Join-Path $ProjectRoot "logs"
-}
-New-Item -ItemType Directory -Force -Path $LogsDir | Out-Null
-
-$stdoutPath = Join-Path $LogsDir "mms_bridge.out.log"
-$stderrPath = Join-Path $LogsDir "mms_bridge.err.log"
-
 function Invoke-Nssm {
     param([Parameter(ValueFromRemainingArguments = $true)] [string[]]$Args)
     & $NssmExe @Args
@@ -76,14 +70,51 @@ function Invoke-Nssm {
 }
 
 $existingService = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+if ($null -ne $existingService -and $existingService.Status -eq "Running") {
+    Invoke-Nssm stop $ServiceName
+    $existingService.WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30))
+}
+
+if ([string]::IsNullOrWhiteSpace($InstallDir)) {
+    $InstallDir = Get-DefaultInstallDir
+}
+New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
+$InstallDir = (Resolve-Path $InstallDir).Path
+
+if ([string]::IsNullOrWhiteSpace($AppPath)) {
+    $AppPath = Join-Path $ProjectRoot "dist\mms_bridge.exe"
+}
+if (-not (Test-Path $AppPath)) {
+    throw "Exe topilmadi: $AppPath"
+}
+$AppPath = (Resolve-Path $AppPath).Path
+
+$installedAppPath = Join-Path $InstallDir ([System.IO.Path]::GetFileName($AppPath))
+if (-not [System.String]::Equals($AppPath, $installedAppPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+    Copy-Item -Path $AppPath -Destination $installedAppPath -Force
+}
+$AppPath = $installedAppPath
+
+if ([string]::IsNullOrWhiteSpace($LogsDir)) {
+    $LogsDir = Join-Path $InstallDir "logs"
+}
+New-Item -ItemType Directory -Force -Path $LogsDir | Out-Null
+$LogsDir = (Resolve-Path $LogsDir).Path
+
+$stdoutPath = Join-Path $LogsDir "mms_bridge.out.log"
+$stderrPath = Join-Path $LogsDir "mms_bridge.err.log"
+
 if ($null -eq $existingService) {
     Invoke-Nssm install $ServiceName $AppPath
 }
 
 Invoke-Nssm set $ServiceName Application $AppPath
-Invoke-Nssm set $ServiceName AppDirectory $ProjectRoot
+Invoke-Nssm set $ServiceName AppDirectory $InstallDir
 if (-not [string]::IsNullOrWhiteSpace($AppParameters)) {
     Invoke-Nssm set $ServiceName AppParameters $AppParameters
+}
+else {
+    Invoke-Nssm reset $ServiceName AppParameters
 }
 Invoke-Nssm set $ServiceName Start SERVICE_AUTO_START
 Invoke-Nssm set $ServiceName DependOnService Tcpip
@@ -121,10 +152,7 @@ $envPairs = @(
 $envExtra = [string]::Join("`n", $envPairs)
 Invoke-Nssm set $ServiceName AppEnvironmentExtra $envExtra
 
-if ($null -ne $existingService -and $existingService.Status -eq "Running") {
-    Invoke-Nssm stop $ServiceName
-    Start-Sleep -Seconds 2
-}
-
 Invoke-Nssm start $ServiceName
 Write-Host "Service ishga tushdi: $ServiceName"
+Write-Host "Install papkasi: $InstallDir"
+Write-Host "Log papkasi: $LogsDir"
