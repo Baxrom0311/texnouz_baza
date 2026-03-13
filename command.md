@@ -15,3 +15,7 @@ powershell -ExecutionPolicy Bypass -File .\ops\windows\install_service.ps1 `
   -SyncFromDateTime "2026-03-01 00:00:00" `
   -BatchSize 1000 `
   -IntervalSeconds 10
+
+
+Get-Service MMSBridge
+
