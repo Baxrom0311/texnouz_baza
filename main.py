@@ -473,6 +473,11 @@ def sync_rule_once(local_conn, remote_conn, rule: dict, batch_size: int) -> int:
             cursor_value = next_cursor
             logging.info("[%s] Batch synced=%s, cursor=%s", rule["name"], len(batch), cursor_value)
 
+        if use_state_table and synced == 0:
+            upsert_state_cursor(remote_cur, state_schema, state_table, rule["name"], cursor_value)
+            remote_conn.commit()
+            logging.info("[%s] No new rows. State heartbeat yangilandi: cursor=%s", rule["name"], cursor_value)
+
         logging.info("[%s] Sync done. Total=%s", rule["name"], synced)
         return synced
 

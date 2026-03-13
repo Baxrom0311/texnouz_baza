@@ -210,6 +210,7 @@ Tavsiya:
 
 ```sql
 -- Remote cursor/state holati
+-- updated_at endi yangi row bo'lmasa ham har loopda yangilanadi
 SELECT rule_name, last_cursor, updated_at
 FROM public.sync_bridge_state;
 
