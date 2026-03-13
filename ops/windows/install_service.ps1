@@ -9,9 +9,9 @@ param(
     [string]$AppParameters = $null,
     [string]$LogsDir = "",
 
-    [string]$LocalDbName = "texnouz_copy",
-    [string]$LocalDbUser = "baxrom",
-    [string]$LocalDbPassword = "",
+    [string]$LocalDbName = "texnouz",
+    [string]$LocalDbUser = "root",
+    [string]$LocalDbPassword = "qazwsxedc1234",
     [string]$LocalDbHost = "127.0.0.1",
     [int]$LocalDbPort = 5432,
 
