@@ -46,9 +46,9 @@ STOP_EVENT = threading.Event()
 
 # Hamma config shu fayl ichida.
 LOCAL_DB = {
-    "dbname": env_str("LOCAL_DB_NAME", "texnouz_copy"),
-    "user": env_str("LOCAL_DB_USER", "baxrom"),
-    "password": env_str("LOCAL_DB_PASSWORD"),
+    "dbname": env_str("LOCAL_DB_NAME", "texnouz"),
+    "user": env_str("LOCAL_DB_USER", "postgres"),
+    "password": env_str("LOCAL_DB_PASSWORD", "qazwsxedc1234"),
     "host": env_str("LOCAL_DB_HOST", DEFAULT_LOCAL_HOST),
     "port": env_int("LOCAL_DB_PORT", 5432),
     "connect_timeout": env_int("LOCAL_DB_CONNECT_TIMEOUT", 5),
