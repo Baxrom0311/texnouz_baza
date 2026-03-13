@@ -25,6 +25,7 @@ LOCAL_DB = {
     "password": "postgres",
     "host": "localhost",
     "port": 5438,
+    "connect_timeout": 5,
 }
 
 REMOTE_DB = {
@@ -33,6 +34,7 @@ REMOTE_DB = {
     "password": "sync_pass12345",
     "host": "18.156.69.195",
     "port": 5432,
+    "connect_timeout": 10,
 }
 
 
@@ -221,15 +223,19 @@ def sync_loop():
     while True:
         try:
             logging.info("Starting sync process...")
-            with get_connection(LOCAL_DB) as local_conn, get_connection(REMOTE_DB) as remote_conn:
-                local_cursor = local_conn.cursor()
-                remote_cursor = remote_conn.cursor()
+            logging.info("Connecting to local DB %s:%s/%s", LOCAL_DB["host"], LOCAL_DB["port"], LOCAL_DB["dbname"])
+            with get_connection(LOCAL_DB) as local_conn:
+                logging.info("Connecting to remote DB %s:%s/%s", REMOTE_DB["host"], REMOTE_DB["port"], REMOTE_DB["dbname"])
+                with get_connection(REMOTE_DB) as remote_conn:
+                    logging.info("Both DB connections are ready.")
+                    local_cursor = local_conn.cursor()
+                    remote_cursor = remote_conn.cursor()
 
-                for table, columns in TABLES.items():
-                    sync_table(local_cursor, remote_cursor, table, columns)
+                    for table, columns in TABLES.items():
+                        sync_table(local_cursor, remote_cursor, table, columns)
 
-                remote_conn.commit()
-                _print("All tables synced successfully.")
+                    remote_conn.commit()
+                    _print("All tables synced successfully.")
         except Exception as e:
             logging.error(f"Sync loop error: {e}", exc_info=True)
             _print(f"Sync loop error: {e}", level="error")
