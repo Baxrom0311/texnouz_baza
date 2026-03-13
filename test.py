@@ -41,6 +41,12 @@ REMOTE_DB = {
 SYNC_INTERVAL = 10
 BATCH_SIZE = 500
 MAX_BATCHES_PER_TABLE = 1
+START_FROM_IDS = {
+    "operation_operation": 207201,
+    "shift_shift": 516, 
+    "video_recording_car": 45419, 
+    "video_recording_videorecord":216312
+}
 
 TABLES = {
     "operation_operation": [
@@ -152,8 +158,9 @@ def generate_upsert_sql(table, columns):
 def sync_table(local_cursor, remote_cursor, table_name, columns):
     try:
         stored_last_sync = get_last_sync(remote_cursor, table_name)
+        start_from_id = START_FROM_IDS.get(table_name, 0)
         current_last_sync = stored_last_sync
-        current_last_id = 0
+        current_last_id = start_from_id
         latest_sync_time = stored_last_sync
         reached_end_of_rows = False
         synced_total = 0
@@ -162,17 +169,33 @@ def sync_table(local_cursor, remote_cursor, table_name, columns):
         updated_at_idx = columns.index("updated_at")
         id_idx = columns.index("id")
 
+        logging.info(
+            "Table '%s' start cursor: last_sync=%s, start_id=%s",
+            table_name,
+            stored_last_sync,
+            start_from_id,
+        )
+
         for batch_no in range(1, MAX_BATCHES_PER_TABLE + 1):
             local_cursor.execute(
                 f"""
                 SELECT {', '.join(columns)}
                 FROM {table_name}
-                WHERE updated_at > %s
-                   OR (updated_at = %s AND id > %s)
+                WHERE id >= %s
+                  AND (
+                    updated_at > %s
+                    OR (updated_at = %s AND id > %s)
+                  )
                 ORDER BY updated_at ASC, id ASC
                 LIMIT %s
                 """,
-                (current_last_sync, current_last_sync, current_last_id, BATCH_SIZE),
+                (
+                    start_from_id,
+                    current_last_sync,
+                    current_last_sync,
+                    current_last_id,
+                    BATCH_SIZE,
+                ),
             )
             rows = local_cursor.fetchall()
             row_count = len(rows)
