@@ -1,12 +1,16 @@
-import argparse
 import logging
-import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import psycopg2
-from psycopg2 import sql
 from psycopg2.extras import execute_values
+
+try:
+    from logger import _print
+except ImportError:
+    def _print(message, level="info"):
+        log_method = getattr(logging, level.lower(), logging.info)
+        log_method(message)
 
 
 logging.basicConfig(
@@ -15,64 +19,26 @@ logging.basicConfig(
 )
 
 
-def _print(message: str, level: str = "info") -> None:
-    log_method = getattr(logging, level.lower(), logging.info)
-    log_method(message)
-
-
-def env_str(name: str, default: str = None):
-    value = os.getenv(name)
-    if value is None or value == "":
-        return default
-    return value
-
-
-def env_int(name: str, default: int):
-    value = os.getenv(name)
-    if value is None or value == "":
-        return default
-    try:
-        return int(value)
-    except ValueError as exc:
-        raise ValueError(f"{name} butun son bo'lishi kerak, hozirgi qiymat: {value}") from exc
-
-
-def parse_dt(value: str) -> datetime:
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError as exc:
-        raise ValueError(
-            "Sana vaqti `YYYY-MM-DD HH:MM:SS` formatida bo'lishi kerak."
-        ) from exc
-
-
-DEFAULT_SYNC_INTERVAL = env_int("TEST_SYNC_INTERVAL", 10)
-DEFAULT_BATCH_SIZE = env_int("TEST_SYNC_BATCH_SIZE", 500)
-DEFAULT_MAX_BATCHES_PER_TABLE = env_int("TEST_MAX_BATCHES_PER_TABLE", 1)
-DEFAULT_INITIAL_SYNC_FROM = parse_dt(
-    env_str("TEST_INITIAL_SYNC_FROM", "2025-06-01 00:00:00")
-)
-SYNC_METADATA_TABLE = "sync_metadata"
-
-
 LOCAL_DB = {
-    "dbname": env_str("LOCAL_DB_NAME", "ugaz_arm"),
-    "user": env_str("LOCAL_DB_USER", "postgres"),
-    "password": env_str("LOCAL_DB_PASSWORD", "postgres"),
-    "host": env_str("LOCAL_DB_HOST", "localhost"),
-    "port": env_int("LOCAL_DB_PORT", 5438),
-    "connect_timeout": env_int("LOCAL_DB_CONNECT_TIMEOUT", 5),
+    "dbname": "ugaz_arm",
+    "user": "postgres",
+    "password": "postgres",
+    "host": "localhost",
+    "port": 5438,
 }
 
 REMOTE_DB = {
-    "dbname": env_str("REMOTE_DB_NAME", "mms_localhost"),
-    "user": env_str("REMOTE_DB_USER", "sync_user1"),
-    "password": env_str("REMOTE_DB_PASSWORD", "sync_pass12345"),
-    "host": env_str("REMOTE_DB_HOST", "18.156.69.195"),
-    "port": env_int("REMOTE_DB_PORT", 5432),
-    "connect_timeout": env_int("REMOTE_DB_CONNECT_TIMEOUT", 10),
+    "dbname": "mms_localhost",
+    "user": "sync_user1",
+    "password": "sync_pass12345",
+    "host": "18.156.69.195",
+    "port": 5432,
 }
 
+
+SYNC_INTERVAL = 10
+BATCH_SIZE = 500
+MAX_BATCHES_PER_TABLE = 1
 
 TABLES = {
     "operation_operation": [
@@ -144,272 +110,133 @@ TABLES = {
 }
 
 
-def clean_config(cfg: dict) -> dict:
-    return {k: v for k, v in cfg.items() if v is not None}
-
-
 def get_connection(config):
-    return psycopg2.connect(**clean_config(config))
+    return psycopg2.connect(**config)
 
 
-def ensure_sync_metadata_table(remote_cursor) -> None:
+def get_last_sync(remote_cursor, table_name):
     remote_cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS sync_metadata (
-            table_name text PRIMARY KEY,
-            last_sync timestamp without time zone NOT NULL,
-            last_sync_id bigint NOT NULL DEFAULT 0,
-            updated_at timestamp with time zone NOT NULL DEFAULT now()
-        )
-        """
-    )
-    remote_cursor.execute(
-        """
-        ALTER TABLE sync_metadata
-        ADD COLUMN IF NOT EXISTS last_sync_id bigint NOT NULL DEFAULT 0
-        """
-    )
-    remote_cursor.execute(
-        """
-        ALTER TABLE sync_metadata
-        ADD COLUMN IF NOT EXISTS updated_at timestamp with time zone NOT NULL DEFAULT now()
-        """
-    )
-
-
-def get_last_sync(remote_cursor, table_name: str, initial_sync_from: datetime):
-    remote_cursor.execute(
-        f"SELECT last_sync, last_sync_id FROM {SYNC_METADATA_TABLE} WHERE table_name = %s",
+        "SELECT last_sync FROM sync_metadata WHERE table_name = %s",
         (table_name,),
     )
     row = remote_cursor.fetchone()
-    if row:
-        return row[0], row[1]
-    return initial_sync_from, 0
+    return row[0] if row else datetime(2025, 6, 1)
 
 
-def update_last_sync(
-    remote_cursor,
-    table_name: str,
-    sync_time: datetime,
-    sync_row_id: int,
-) -> None:
+def update_last_sync(remote_cursor, table_name, sync_time):
     remote_cursor.execute(
-        f"""
-        INSERT INTO {SYNC_METADATA_TABLE} (table_name, last_sync, last_sync_id, updated_at)
-        VALUES (%s, %s, %s, now())
-        ON CONFLICT (table_name)
-        DO UPDATE SET
-            last_sync = EXCLUDED.last_sync,
-            last_sync_id = EXCLUDED.last_sync_id,
-            updated_at = now()
-        """,
-        (table_name, sync_time, sync_row_id),
-    )
-
-
-def generate_upsert_sql(connection, table_name: str, columns: list[str]) -> str:
-    insert_cols = sql.SQL(", ").join(sql.Identifier(column) for column in columns)
-    update_cols = [column for column in columns if column != "id"]
-    set_clause = sql.SQL(", ").join(
-        sql.SQL("{column} = EXCLUDED.{column}").format(column=sql.Identifier(column))
-        for column in update_cols
-    )
-    query = sql.SQL(
         """
-        INSERT INTO {table} ({columns})
+        INSERT INTO sync_metadata (table_name, last_sync)
+        VALUES (%s, %s)
+        ON CONFLICT (table_name)
+        DO UPDATE SET last_sync = EXCLUDED.last_sync
+        """,
+        (table_name, sync_time),
+    )
+
+
+def generate_upsert_sql(table, columns):
+    col_str = ", ".join(columns)
+    set_clause = ", ".join(
+        [f"{col} = EXCLUDED.{col}" for col in columns if col != "id"]
+    )
+    return f"""
+        INSERT INTO {table} ({col_str})
         VALUES %s
         ON CONFLICT (id) DO UPDATE SET {set_clause}
-        """
-    ).format(
-        table=sql.Identifier(table_name),
-        columns=insert_cols,
-        set_clause=set_clause,
-    )
-    return query.as_string(connection)
+    """
 
 
-def fetch_batch(
-    local_cursor,
-    table_name: str,
-    columns: list[str],
-    last_sync: datetime,
-    last_sync_id: int,
-    batch_size: int,
-):
-    query = sql.SQL(
-        """
-        SELECT {columns}
-        FROM {table}
-        WHERE updated_at IS NOT NULL
-          AND (
-            updated_at > %s
-            OR (updated_at = %s AND id > %s)
-          )
-        ORDER BY updated_at ASC, id ASC
-        LIMIT %s
-        """
-    ).format(
-        columns=sql.SQL(", ").join(sql.Identifier(column) for column in columns),
-        table=sql.Identifier(table_name),
-    )
-    local_cursor.execute(query, (last_sync, last_sync, last_sync_id, batch_size))
-    return local_cursor.fetchall()
+def sync_table(local_cursor, remote_cursor, table_name, columns):
+    try:
+        stored_last_sync = get_last_sync(remote_cursor, table_name)
+        current_last_sync = stored_last_sync
+        current_last_id = 0
+        latest_sync_time = stored_last_sync
+        reached_end_of_rows = False
+        synced_total = 0
 
+        upsert_query = generate_upsert_sql(table_name, columns)
+        updated_at_idx = columns.index("updated_at")
+        id_idx = columns.index("id")
 
-def sync_table(
-    local_cursor,
-    remote_cursor,
-    remote_conn,
-    table_name: str,
-    columns: list[str],
-    batch_size: int,
-    max_batches_per_table: int,
-    initial_sync_from: datetime,
-) -> int:
-    last_sync, last_sync_id = get_last_sync(remote_cursor, table_name, initial_sync_from)
-    updated_at_idx = columns.index("updated_at")
-    id_idx = columns.index("id")
-    upsert_query = generate_upsert_sql(remote_conn, table_name, columns)
-
-    synced_total = 0
-
-    # Bir siklda qancha row ishlashni cheklaymiz, backlog bo'lsa keyingi aylanishga qoldiradi.
-    for batch_no in range(1, max_batches_per_table + 1):
-        rows = fetch_batch(
-            local_cursor,
-            table_name,
-            columns,
-            last_sync,
-            last_sync_id,
-            batch_size,
-        )
-        if not rows:
-            if synced_total == 0:
-                logging.info("No new rows to sync for table '%s'.", table_name)
-            break
-
-        execute_values(
-            remote_cursor,
-            upsert_query,
-            rows,
-            page_size=min(len(rows), 1000),
-        )
-
-        last_row = rows[-1]
-        last_sync = last_row[updated_at_idx]
-        last_sync_id = last_row[id_idx]
-        update_last_sync(remote_cursor, table_name, last_sync, last_sync_id)
-        remote_conn.commit()
-
-        synced_total += len(rows)
-        _print(
-            (
-                f"Table '{table_name}' batch {batch_no}: "
-                f"{len(rows)} row sync qilindi, cursor=({last_sync}, {last_sync_id})."
+        for batch_no in range(1, MAX_BATCHES_PER_TABLE + 1):
+            local_cursor.execute(
+                f"""
+                SELECT {', '.join(columns)}
+                FROM {table_name}
+                WHERE updated_at > %s
+                   OR (updated_at = %s AND id > %s)
+                ORDER BY updated_at ASC, id ASC
+                LIMIT %s
+                """,
+                (current_last_sync, current_last_sync, current_last_id, BATCH_SIZE),
             )
-        )
+            rows = local_cursor.fetchall()
+            row_count = len(rows)
 
-        if len(rows) < batch_size:
-            break
+            if row_count == 0:
+                if synced_total == 0:
+                    logging.info("No new rows to sync for table '%s'.", table_name)
+                reached_end_of_rows = True
+                break
 
-    if synced_total:
-        _print(f"Table '{table_name}' bo'yicha jami {synced_total} row sync qilindi.")
+            execute_values(
+                remote_cursor,
+                upsert_query,
+                rows,
+                page_size=min(row_count, 1000),
+            )
 
-    return synced_total
+            latest_row = rows[-1]
+            current_last_sync = latest_row[updated_at_idx]
+            current_last_id = latest_row[id_idx]
+            latest_sync_time = current_last_sync
+            synced_total += row_count
 
+            _print(
+                f"Batch {batch_no}: {row_count} row sync qilindi for table '{table_name}'."
+            )
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Batch asosida local DBdan remote DBga test sync qiladi."
-    )
-    parser.add_argument("--once", action="store_true", help="Bitta sync siklini bajaradi.")
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=DEFAULT_BATCH_SIZE,
-        help=f"Har batch uchun row limiti (default: {DEFAULT_BATCH_SIZE}).",
-    )
-    parser.add_argument(
-        "--max-batches-per-table",
-        type=int,
-        default=DEFAULT_MAX_BATCHES_PER_TABLE,
-        help=(
-            "Har loopda bir jadval uchun nechta batch ishlashini cheklaydi "
-            f"(default: {DEFAULT_MAX_BATCHES_PER_TABLE})."
-        ),
-    )
-    parser.add_argument(
-        "--interval",
-        type=int,
-        default=DEFAULT_SYNC_INTERVAL,
-        help=f"Loop oralig'i sekundlarda (default: {DEFAULT_SYNC_INTERVAL}).",
-    )
-    parser.add_argument(
-        "--initial-sync-from",
-        type=parse_dt,
-        default=DEFAULT_INITIAL_SYNC_FROM,
-        help=(
-            "sync_metadata'da cursor bo'lmasa qaysi vaqtdan boshlash "
-            f"(default: {DEFAULT_INITIAL_SYNC_FROM:%Y-%m-%d %H:%M:%S})."
-        ),
-    )
-    return parser.parse_args()
+            if row_count < BATCH_SIZE:
+                reached_end_of_rows = True
+                break
+
+        if synced_total == 0:
+            return
+
+        if reached_end_of_rows:
+            update_last_sync(remote_cursor, table_name, latest_sync_time)
+        else:
+            safe_sync_time = latest_sync_time - timedelta(microseconds=1)
+            update_last_sync(remote_cursor, table_name, safe_sync_time)
+
+        _print(f"Synced {synced_total} rows for table '{table_name}'.")
+
+    except Exception as e:
+        _print(f"Error syncing table '{table_name}': {e}", level="error")
 
 
-def run_sync_cycle(
-    batch_size: int,
-    max_batches_per_table: int,
-    initial_sync_from: datetime,
-) -> int:
-    total_synced = 0
-    with get_connection(LOCAL_DB) as local_conn, get_connection(REMOTE_DB) as remote_conn:
-        with local_conn.cursor() as local_cursor, remote_conn.cursor() as remote_cursor:
-            ensure_sync_metadata_table(remote_cursor)
-            for table_name, columns in TABLES.items():
-                total_synced += sync_table(
-                    local_cursor,
-                    remote_cursor,
-                    remote_conn,
-                    table_name,
-                    columns,
-                    batch_size,
-                    max_batches_per_table,
-                    initial_sync_from,
-                )
-
-    return total_synced
-
-
-def main():
-    args = parse_args()
-
-    if args.batch_size <= 0:
-        raise SystemExit("--batch-size 0 dan katta bo'lishi kerak.")
-    if args.max_batches_per_table <= 0:
-        raise SystemExit("--max-batches-per-table 0 dan katta bo'lishi kerak.")
-    if args.interval <= 0:
-        raise SystemExit("--interval 0 dan katta bo'lishi kerak.")
-
+def sync_loop():
     while True:
         try:
             logging.info("Starting sync process...")
-            total_synced = run_sync_cycle(
-                args.batch_size,
-                args.max_batches_per_table,
-                args.initial_sync_from,
-            )
-            _print(f"Sync cycle tugadi. Jami sync qilingan row: {total_synced}.")
-        except Exception as exc:
-            logging.error("Sync loop error: %s", exc, exc_info=True)
-            _print(f"Sync loop error: {exc}", level="error")
+            with get_connection(LOCAL_DB) as local_conn, get_connection(REMOTE_DB) as remote_conn:
+                local_cursor = local_conn.cursor()
+                remote_cursor = remote_conn.cursor()
 
-        if args.once:
-            break
+                for table, columns in TABLES.items():
+                    sync_table(local_cursor, remote_cursor, table, columns)
 
-        logging.info("Sleeping for %s seconds before next attempt.", args.interval)
-        time.sleep(args.interval)
+                remote_conn.commit()
+                _print("All tables synced successfully.")
+        except Exception as e:
+            logging.error(f"Sync loop error: {e}", exc_info=True)
+            _print(f"Sync loop error: {e}", level="error")
+        finally:
+            logging.info(f"Sleeping for {SYNC_INTERVAL} seconds before next attempt.")
+            time.sleep(SYNC_INTERVAL)
 
 
 if __name__ == "__main__":
-    main()
+    sync_loop()
