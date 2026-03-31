@@ -4,7 +4,8 @@ import os
 import signal
 import threading
 import time
-
+import shutil
+import tempfile
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import execute_values
@@ -178,10 +179,22 @@ def sync_once(batch_size: int) -> int:
     remote_table = "operation_operation_texnouz_v1"
     conflict_cols = ["DataID"]
 
+    # --- FILE LOCK BYPASS: "Hot Copy" the .mdb file ---
+    # Since Texnouz.exe heavily locks the file, we copy it silently first.
+    temp_dir = tempfile.gettempdir()
+    temp_mdb_path = os.path.join(temp_dir, "sync_temp_db3.mdb")
+
     try:
-        local_conn = get_local_connection(LOCAL_MDB_PATH)
+        shutil.copy2(LOCAL_MDB_PATH, temp_mdb_path)
     except Exception as e:
-        logging.error(f"Local MS Access ({LOCAL_MDB_PATH}) bazasiga ulanib bo'lmadi: {e}")
+        logging.error(f"Fayl nusxasini yaratishda OS blokladi (qattiq qulf): {e}")
+        # Agar fayl qattiq bloklangan bo'lsa darhol chiqib ketamiz
+        return 0
+
+    try:
+        local_conn = get_local_connection(temp_mdb_path)
+    except Exception as e:
+        logging.error(f"Local MS Access ({temp_mdb_path}) temp bazasiga ulanib bo'lmadi: {e}")
         return 0
 
     try:
