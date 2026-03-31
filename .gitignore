@@ -49,3 +49,6 @@ Thumbs.db
 *.bak
 *.swp
 *.tmp
+
+
+*/app

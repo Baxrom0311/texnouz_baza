@@ -1,0 +1,114 @@
+# Texno Uz v1 Baza Tuzilmasi (Database Schema)
+
+Ushbu hujjatda `texno uz v1` (eski dastur) uchun asosiy ma'lumotlar bazasi ([db3.mdb](file:///Users/baxrom/ish_full/Bekmurod_domla_ish/mms/texnouz_v1/Base/db3.mdb) / PostgreSQL) jadvallari va ularning o'zaro bog'liqliklari (ER diagrammasi) tushuntirilgan. Asosiy maqsad stansiyadagi sotuv (tranzaksiya), smena, yoqilg'i turlari va operatorlarni hisobga olishdan iborat.
+
+## 1. Asosiy Jadvallar
+
+### 1) Asosiy Ma'lumotlar va Tranzaksiyalar
+- **`tabmaindata`**: Har bir yoqilg'i quyish tranzaksiyasini yozib boradi.
+  - `data_id` (PK) - Tranzaksiya identifikatori.
+  - `change_id` - Qaysi smenada amalga oshirilgani.
+  - `pistolet_id` - Qaysi pistoletdan quyilganligi.
+  - `operator_id` - Jarayonni kim (operator) boshqargani.
+  - `liters`, `order_liters`, `order_money` - Quyilgan litr va pul miqdori.
+  - `date_time` - Tranzaksiya vaqti.
+
+### 2) Smena (Navbat) Boshqaruvi
+- **`tabchange`**: Smenalarning ochilishi va yopilishi qayd etiladi.
+  - `change_id` (PK) - Smena raqami.
+  - `start_datetime`, `end_datetime` - Boshlanish va tugash vaqti.
+  - `operator_id` - Smenani boshqarayotgan hudud operatori.
+  - `closed_flag` - Smena yopilganligini belgilaydigan bayroq (true/false).
+
+### 3) Konfiguratsiyalar va Uskunalar
+- **`tabtrk`**: TRK (yoqilg'i tarqatish kolonkasi) va pistoletlarning mapping qismi.
+  - `idx` (PK), `trk_id`, `pistolet_id`, `half`
+- **`tabconfig`**: Dasturning turli hil parametr va sozlamalari (`key`-`val` ko'rinishida).
+- **`tabsummcounter`**: Count'er (sotuv agregatlari / jamlanmasi) ma'lumotlari. Pistolet oborotlari jami ko'rsatkichlari.
+
+### 4) Yoqilg'i va Xodimlar
+- **`tabgastype`**: Sotilayotgan gaz yoki yoqilg'i nomlari, narxlari va parametrlari (`price`, `dencity`, `is_metan`).
+- **`taboperator`**: Tizim foydalanuvchilari (operatorlar) ism, parol va type ma'lumoti bilan.
+- **`taboperatortype`**: Operatorlarning ruxsat turlari / rollari nomi (`type_name`).
+
+---
+
+## 2. ER Diagramma (O'zaro bog'liqlik)
+
+```mermaid
+erDiagram
+    TABOPERATORTYPE ||--o{ TABOPERATOR : operator_type
+    TABOPERATOR ||--o{ TABCHANGE : operator
+    TABCHANGE ||--o{ TABMAINDATA : change
+    TABOPERATOR ||--o{ TABMAINDATA : operator
+    TABTRK ||--o{ TABMAINDATA : pistolet
+    TABCHANGE ||--o{ TABSUMMCOUNTER : change_inferred
+    TABTRK ||--o{ TABSUMMCOUNTER : pisnum_inferred
+    TABOPERATOR ||--o{ TABGASTYPE : operator_optional
+
+    TABCONFIG {
+      bigint id PK
+      string key
+      string val
+    }
+
+    TABOPERATORTYPE {
+      bigint type_id PK
+      string type_name
+    }
+
+    TABOPERATOR {
+      bigint operator_id PK
+      string name UK
+      string password UK
+      int type_id
+    }
+
+    TABCHANGE {
+      bigint change_id PK
+      datetime start_datetime
+      datetime end_datetime
+      int operator_id
+      bool closed_flag
+    }
+
+    TABTRK {
+      bigint idx PK
+      int trk_id
+      int pistolet_id
+      int half
+    }
+
+    TABGASTYPE {
+      bigint num PK
+      string gas_name
+      int price
+      int dencity
+      bool is_metan
+      int operator_id
+    }
+
+    TABMAINDATA {
+      bigint data_id PK
+      int change_id
+      int pistolet_id
+      int operator_id
+      int liters
+      int order_liters
+      float order_money
+      datetime date_time
+      bool sync_flag
+    }
+
+    TABSUMMCOUNTER {
+      bigint data_id PK
+      int change_id
+      int pis_num
+      datetime end_datetime
+      bigint begin_counter
+      bigint end_counter
+      bool sync_flag
+    }
+```
+
+Ushbu schema arxitekturasi eski `texno uz v1` (MS Access [db3.mdb](file:///Users/baxrom/ish_full/Bekmurod_domla_ish/mms/texnouz_v1/Base/db3.mdb)) hamda hozirgi API tranzaksiyalar yig'uvchi logikasida asos bo'lib xizmat qiladi.
