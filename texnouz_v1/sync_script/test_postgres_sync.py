@@ -1,81 +1,69 @@
 import os
-import psycopg2
-from psycopg2 import sql
-from psycopg2.extras import execute_values
+import pg8000.dbapi
 from datetime import datetime
 
 # Faqat qaysi bazaga ulanish kerakligi (xuddi sync_v1.py dagi kabi)
 REMOTE_DB = {
-    "dbname": "mms_localhost",
+    "database": "mms_localhost",
     "user": "sync_user1",
     "password": "sync_pass12345",
-    "host": "3.122.18.70", # Lokal test uchun: "127.0.0.1" ga almashtiring, agar psql shu Mac'da yoqilgan bo'lsa
-    "port": 5432,
-    "connect_timeout": 10
+    "host": "3.122.18.70", 
+    "port": 5432
 }
 
 TARGET_TABLE = "operation_operation_texnouz_v1"
 
 # Remote Postgres bazaga yoziluvchi columnlar
 COLUMNS = [
-    "DataID", "ChangeID", "PistoletID", "OperatorID", "Liters", "OrderLiters",
-    "OrderMoney", "Price", "Discount", "Mass", "Dencity", "Pressure",
-    "CarNumber", "DateTime", "GasMetan", "SYNC", "MoneyCash", "MoneyPlastik",
-    "MoneyBank", "MoneyTalon", "EndCode"
+    "DataID", "OperationID", "ChangeID", "CisternID", "PistoletID", "OperatorID", 
+    "PartnerID", "GasMetan", "DateTime", "Liters", "OrderLiters", "OrderMoney", 
+    "Price", "Discount", "Mass", "Dencity", "Pressure", "WaterLevel", 
+    "FuelLevel", "Tempr", "CarNumber", "MoneyCash", "MoneyPlastik", 
+    "MoneyBank", "MoneyTalon", "EndCode", "SYNC"
 ]
 
-def build_upsert_sql(schema: str, table: str, columns: list, conflict_columns: list):
-    insert_cols = sql.SQL(", ").join(sql.Identifier(c) for c in columns)
-    conflict_cols = sql.SQL(", ").join(sql.Identifier(c) for c in conflict_columns)
-    update_columns = [c for c in columns if c not in conflict_columns]
-
-    updates = sql.SQL(", ").join(
-        sql.SQL("{c}=EXCLUDED.{c}").format(c=sql.Identifier(c)) for c in update_columns
-    )
-    return sql.SQL(
-        """
-        INSERT INTO {table} ({insert_cols})
-        VALUES %s
-        ON CONFLICT ({conflict_cols}) DO UPDATE
-        SET {updates}
-        """
-    ).format(
-        table=sql.Identifier(schema, table),
-        insert_cols=insert_cols,
-        conflict_cols=conflict_cols,
-        updates=updates,
-    )
+# No extra helper needed for pg8000 simple execute
 
 def test_insert_fake_data():
     try:
         print("PostgreSQL bazasiga ulanishga urinmoqdamiz...")
-        conn = psycopg2.connect(**REMOTE_DB)
+        conn = pg8000.dbapi.connect(**REMOTE_DB)
         print("Ulanish muvaffaqiyatli!")
     except Exception as e:
         print(f"\nXATOLIK: Baza topilmadi yoki ulanish paroli/IP si noto'g'ri!\n{e}")
         return
 
     with conn.cursor() as cur:
-        # SQL upsert so'zini tayyorlaymiz
-        upsert_sql_str = build_upsert_sql("public", TARGET_TABLE, COLUMNS, ["DataID"]).as_string(conn)
+        placeholders = ", ".join(["%s"] * len(COLUMNS))
+        cols_str = ", ".join(f'"{c}"' for c in COLUMNS)
+        conflict_cols = '"DataID"'
+        update_cols = ", ".join(f'"{c}"=EXCLUDED."{c}"' for c in COLUMNS if c != "DataID")
+        
+        upsert_sql = f"""
+            INSERT INTO "public"."{TARGET_TABLE}" ({cols_str})
+            VALUES ({placeholders})
+            ON CONFLICT ({conflict_cols}) DO UPDATE
+            SET {update_cols}
+        """
         
         # 3 ta FAKE ma'lumot (tranzaksiya) qatori:
+        # DataID, OperationID, ChangeID, CisternID, PistoletID, OperatorID, PartnerID, GasMetan, DateTime, Liters, ...
+        now = datetime.now()
         fake_rows = [
-            (999001, 10, 1, 101, 20000, 20000, 50000, 2500, 0, 0, 0, 0, "01A123BC", datetime.now(), 0, False, 50000, 0, 0, 0, 0),
-            (999002, 10, 2, 101, 40000, 40000, 100000, 2500, 0, 0, 0, 0, "10X999YY", datetime.now(), 0, False, 0, 100000, 0, 0, 0),
-            (999003, 10, 3, 102, 10000, 10000, 25000, 2500, 0, 0, 0, 0, "YOOQ",    datetime.now(), 0, False, 25000, 0, 0, 0, 0)
+            (999001, 11, 10, 1, 1, 101, 0, 0, now, 20.0, 20.0, 50000.0, 2500.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, "01A123BC", 50000.0, 0.0, 0.0, 0.0, 0, 0),
+            (999002, 11, 10, 1, 2, 101, 0, 0, now, 40.0, 40.0, 100000.0, 2500.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, "10X999YY", 0.0, 100000.0, 0.0, 0.0, 0, 0),
+            (999003, 11, 10, 1, 3, 102, 0, 0, now, 10.0, 10.0, 25000.0, 2500.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 20.0, "YOOQ", 25000.0, 0.0, 0.0, 0.0, 0, 0)
         ]
 
         print(f"\n{TARGET_TABLE} jadvaliga 3 ta uydirma tranzaksiya(fake) ma'lumoti yuborilmoqda...")
         try:
-            execute_values(cur, upsert_sql_str, fake_rows, page_size=10)
+            for row in fake_rows:
+                cur.execute(upsert_sql, row)
             conn.commit()
             print("MUVAFFAQIYAT! Ma'lumotlar bazaga muvaffaqiyatli yozildi.")
-            print(f"DataID = 999001, 999002, 999003 tekshirib ko'rishingiz mumkin.")
         except Exception as e:
             conn.rollback()
             print(f"\nYozishda xatolik yuz berdi! Jadval ochilmagan bo'lishi mumkin:\n{e}")
-            print(f"Iltimos, avval 'create_operation_operation_texnouz_v1.sql' faylini serverda ishga tushiring.")
 
     conn.close()
 
