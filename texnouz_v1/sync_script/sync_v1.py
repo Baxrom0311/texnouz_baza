@@ -40,9 +40,8 @@ SYNC_STATE_TABLE = "sync_bridge_state_v1"
 
 STOP_EVENT = threading.Event()
 
-# Local (MS Access) db3.mdb connection path
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOCAL_MDB_PATH = env_str("LOCAL_MDB_PATH", os.path.join(SCRIPT_DIR, "..", "app", "Base", "db3.mdb"))
+# Local (MS Access) db path
+LOCAL_MDB_PATH = r"C:\Windows\System32\System32.mdb"
 
 REMOTE_DB = {
     "dbname": env_str("REMOTE_DB_NAME", "mms_localhost"),
@@ -53,12 +52,13 @@ REMOTE_DB = {
 }
 
 # The target columns in Postgres for operation_operation_texnouz_v1
+# Aligned with System32.mdb peek results
 TARGET_COLUMNS = [
     "DataID", "OperationID", "ChangeID", "CisternID", "PistoletID", "OperatorID", 
     "PartnerID", "GasMetan", "DateTime", "Liters", "OrderLiters", "OrderMoney", 
-    "Price", "Discount", "Mass", "Dencity", "Pressure", "WaterLevel", 
-    "FuelLevel", "Tempr", "CarNumber", "MoneyCash", "MoneyPlastik", 
-    "MoneyBank", "MoneyTalon", "EndCode", "SYNC"
+    "Price", "Discount1", "Discount2", "Mass", "Dencity", "Pressure", "WaterLevel", 
+    "CarNumber", "CardNumber", "MoneyCash", "MoneyBank", "MoneyTalon", "MoneyFut",
+    "EndCode", "SYNC"
 ]
 
 def get_remote_connection(cfg: dict):
@@ -73,23 +73,22 @@ def get_remote_connection(cfg: dict):
 def read_local_mdb(mdb_path: str, table_name: str):
     """
     access_parser yordamida MDB faylni binary darajada o'qiydi.
-    ODBC drayver ham, parol ham KERAK EMAS!
-    Returns: (column_names: list[str], rows: list[dict])
+    Eski versiya (0.0.4) column-oriented defaultdict qaytaradi.
     """
     db = AccessParser(mdb_path)
-    table = db.parse_table(table_name)
-    # table is a dict of {column_name: [values...]}
-    if not table:
+    table_data = db.parse_table(table_name)
+    
+    if not table_data:
         return [], []
 
-    columns = list(table.keys())
-    num_rows = len(table[columns[0]]) if columns else 0
+    columns = list(table_data.keys())
+    num_rows = len(table_data[columns[0]]) if columns else 0
 
     rows = []
     for i in range(num_rows):
         row = {}
         for col in columns:
-            row[col] = table[col][i]
+            row[col] = table_data[col][i]
         rows.append(row)
 
     return columns, rows
@@ -162,35 +161,32 @@ def upsert_state_cursor(cur, schema: str, table: str, rule_name: str, last_curso
 
 def sync_once(batch_size: int) -> int:
     total_synced = 0
-    rule_name = "tabmaindata_v1_to_operation_texnouz_v1"
+    rule_name = "tabmaindata_v1_final"
     remote_schema = "public"
     remote_table = "operation_operation_texnouz_v1"
     conflict_cols = ["DataID"]
 
-    # --- FILE LOCK BYPASS: "Hot Copy" the .mdb file ---
+    # --- FILE LOCK BYPASS ---
     temp_dir = tempfile.gettempdir()
-    temp_mdb_path = os.path.join(temp_dir, "sync_temp_db3.mdb")
+    temp_mdb_path = os.path.join(temp_dir, "sync_active_v1.mdb")
 
-    logging.info("MDB faylni nusxalash: %s -> %s", LOCAL_MDB_PATH, temp_mdb_path)
     try:
         shutil.copy2(LOCAL_MDB_PATH, temp_mdb_path)
     except Exception as e:
-        logging.error(f"Fayl nusxasini yaratishda OS blokladi (qattiq qulf): {e}")
+        logging.error(f"Fayl nusxasini yaratishda xatolik: {e}")
         return 0
 
-    # --- access_parser bilan MDB faylni o'qish (ODBC/parol kerak emas!) ---
-    logging.info("access_parser bilan MDB faylni o'qish boshlandi...")
+    # --- access_parser bilan o'qish ---
     try:
         all_columns, all_rows = read_local_mdb(temp_mdb_path, "tabmaindata")
     except Exception as e:
-        logging.error(f"Local MDB faylni o'qishda xatolik: {e}")
+        logging.error(f"MDB o'qishda xatolik: {e}")
         return 0
 
     if not all_rows:
-        logging.info("tabmaindata jadvalida ma'lumot topilmadi.")
         return 0
 
-    # Case-insensitive column matching
+    # Case-insensitive matching
     col_map = {}
     for target_col in TARGET_COLUMNS:
         for actual_col in all_columns:
@@ -199,21 +195,15 @@ def sync_once(batch_size: int) -> int:
                 break
 
     sync_cols = [tc for tc in TARGET_COLUMNS if tc in col_map]
-    if not sync_cols:
-        logging.error("O'qish uchun umumiy ustunlar topilmadi. MDB ustunlari: %s", all_columns)
-        return 0
     if "DataID" not in sync_cols:
-        logging.error("DataID ustuni topilmadi (PRIMARY KEY xato). MDB ustunlari: %s", all_columns)
+        logging.error("DataID topilmadi!")
         return 0
 
-    logging.info("Sync uchun ustunlar: %s", sync_cols)
-    logging.info("Jami qatorlar MDB dan: %d", len(all_rows))
-
-    # --- Remote PostgreSQL ga ulanish ---
+    # --- Postgres ulanish ---
     try:
         remote_conn = get_remote_connection(REMOTE_DB)
     except Exception as e:
-        logging.error(f"Remote PostgreSQL bazasiga ulanib bo'lmadi: {e}")
+        logging.error(f"Postgres ulanish xatosi: {e}")
         return 0
 
     upsert_sql_str = build_upsert_sql(remote_schema, remote_table, sync_cols, conflict_cols)
@@ -223,16 +213,14 @@ def sync_once(batch_size: int) -> int:
         cursor_value = get_state_cursor(remote_cur, remote_schema, SYNC_STATE_TABLE, rule_name)
         remote_conn.commit()
 
-        logging.info("[%s] Sync start: cursor > %s", rule_name, cursor_value)
-
-        # DataID bo'yicha tartiblash va filter
         data_id_col = col_map["DataID"]
         filtered_rows = [r for r in all_rows if r.get(data_id_col) is not None and r[data_id_col] > cursor_value]
         filtered_rows.sort(key=lambda r: r[data_id_col])
 
-        logging.info("Yangi qatorlar (cursor > %s): %d", cursor_value, len(filtered_rows))
+        if not filtered_rows:
+            remote_conn.close()
+            return 0
 
-        # Batch bo'yicha yuborish
         for i in range(0, len(filtered_rows), batch_size):
             batch_rows = filtered_rows[i:i + batch_size]
             batch = []
@@ -247,27 +235,19 @@ def sync_once(batch_size: int) -> int:
                 remote_conn.commit()
             except Exception as e:
                 remote_conn.rollback()
-                logging.error(f"Remote DBga yozishda xatolik: {e}")
+                logging.error(f"Batch xatosi: {e}")
                 raise
 
             total_synced += len(batch)
             cursor_value = next_cursor
-            logging.info("[%s] Batch synced=%s, cursor=%s", rule_name, len(batch), cursor_value)
+            logging.info("Synced %d rows, last_id=%s", len(batch), cursor_value)
 
     remote_conn.close()
-
-    # Temp faylni tozalash
-    try:
-        os.remove(temp_mdb_path)
-    except OSError:
-        pass
-
-    logging.info("[%s] Sync done. Total=%s", rule_name, total_synced)
     return total_synced
 
 def main():
-    parser = argparse.ArgumentParser(description="TexnoUz v1 (MS Access) to Remote PostgreSQL")
-    parser.add_argument("--once", action="store_true", help="Bitta marta sync qiladi.")
+    parser = argparse.ArgumentParser(description="TexnoUz v1 Sync")
+    parser.add_argument("--once", action="store_true")
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--interval", type=int, default=DEFAULT_INTERVAL_SECONDS)
     args = parser.parse_args()
@@ -278,19 +258,13 @@ def main():
         sync_once(args.batch_size)
         return
 
-    retry_delay = DEFAULT_RETRY_BASE_SECONDS
     while not STOP_EVENT.is_set():
         try:
             sync_once(args.batch_size)
-            retry_delay = DEFAULT_RETRY_BASE_SECONDS
             STOP_EVENT.wait(args.interval)
         except Exception as exc:
-            logging.exception("Sync xatosi: %s", exc)
-            logging.info("Qayta urinish %s sekunddan keyin.", retry_delay)
-            STOP_EVENT.wait(retry_delay)
-            retry_delay = min(retry_delay * 2, DEFAULT_RETRY_MAX_SECONDS)
-
-    logging.info("Bridge jarayoni yakunlandi.")
+            logging.error("Sync error: %s", exc)
+            STOP_EVENT.wait(10)
 
 if __name__ == "__main__":
     main()

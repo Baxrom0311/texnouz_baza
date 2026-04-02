@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS public.operation_operation_texnouz_v1 (
     "OrderLiters" double precision DEFAULT 0 NOT NULL,
     "OrderMoney" double precision DEFAULT 0 NOT NULL,
     "Price" double precision DEFAULT 0 NOT NULL,
-    "Discount" double precision DEFAULT 0 NOT NULL,
+    "Discount1" double precision DEFAULT 0 NOT NULL,
+    "Discount2" double precision DEFAULT 0 NOT NULL,
     "Mass" double precision DEFAULT 0 NOT NULL,
     "Dencity" double precision DEFAULT 0 NOT NULL,
     "Pressure" double precision DEFAULT 0 NOT NULL,
@@ -22,10 +23,11 @@ CREATE TABLE IF NOT EXISTS public.operation_operation_texnouz_v1 (
     "FuelLevel" double precision DEFAULT 0,
     "Tempr" double precision DEFAULT 0,
     "CarNumber" character varying DEFAULT '' NOT NULL,
+    "CardNumber" character varying DEFAULT '' NOT NULL,
     "MoneyCash" double precision DEFAULT 0 NOT NULL,
-    "MoneyPlastik" double precision DEFAULT 0 NOT NULL,
     "MoneyBank" double precision DEFAULT 0 NOT NULL,
     "MoneyTalon" double precision DEFAULT 0 NOT NULL,
+    "MoneyFut" double precision DEFAULT 0 NOT NULL,
     "EndCode" integer,
     "SYNC" boolean DEFAULT false NOT NULL
 );
