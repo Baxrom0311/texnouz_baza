@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Texnouz v2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .status-idle       { @apply bg-gray-200 text-gray-700; }
+    .status-armed      { @apply bg-yellow-400 text-yellow-900; }
+    .status-dispensing { @apply bg-blue-500 text-white animate-pulse; }
+    .status-complete   { @apply bg-green-500 text-white; }
+    .status-error      { @apply bg-red-500 text-white; }
+    body { font-family: 'Segoe UI', sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 w-80">
+    <h2 class="text-2xl font-bold text-center mb-6 text-blue-700">Texnouz v2</h2>
+    <p class="text-center text-gray-500 mb-4">AZS Boshqaruv Tizimi</p>
+    <div class="mb-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Parol</label>
+      <input id="loginPassword" type="password" placeholder="Parolni kiriting"
+        class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400 outline-none"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button onclick="doLogin()"
+      class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg transition">
+      Kirish
+    </button>
+    <p id="loginError" class="text-red-500 text-sm text-center mt-2 hidden">Parol noto'g'ri</p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden">
+
+  <!-- HEADER -->
+  <header class="bg-blue-700 text-white px-6 py-3 flex items-center justify-between shadow-md">
+    <div class="flex items-center gap-4">
+      <span class="text-xl font-bold">⛽ Texnouz v2</span>
+      <span id="headerShift" class="text-sm bg-blue-600 px-3 py-1 rounded-full">Smena yo'q</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <span id="headerOperator" class="text-sm"></span>
+      <span id="headerTime" class="text-sm font-mono"></span>
+      <button onclick="doLogout()" class="text-sm bg-blue-800 hover:bg-blue-900 px-3 py-1 rounded-lg">
+        Chiqish
+      </button>
+    </div>
+  </header>
+
+  <!-- NAV TABS -->
+  <nav class="bg-white border-b flex px-6 gap-1 shadow-sm">
+    <button onclick="showTab('cashier')" id="tab-cashier" class="tab-btn active px-4 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600">
+      🏪 Kassir
+    </button>
+    <button onclick="showTab('shift')" id="tab-shift" class="tab-btn px-4 py-3 text-sm font-medium text-gray-600 hover:text-blue-600">
+      📋 Smena
+    </button>
+    <button onclick="showTab('report')" id="tab-report" class="tab-btn px-4 py-3 text-sm font-medium text-gray-600 hover:text-blue-600">
+      📊 Hisobot
+    </button>
+    <button onclick="showTab('admin')" id="tab-admin" class="tab-btn px-4 py-3 text-sm font-medium text-gray-600 hover:text-blue-600">
+      ⚙️ Sozlamalar
+    </button>
+  </nav>
+
+  <!-- CASHIER TAB -->
+  <div id="tab-cashier-content" class="p-6">
+    <!-- TRK GRID -->
+    <div class="mb-6">
+      <h3 class="text-lg font-semibold text-gray-700 mb-3">Pistoletlar holati</h3>
+      <div id="trkGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- JS tomonidan to'ldiriladi -->
+      </div>
+    </div>
+
+    <!-- DISPENSE FORM -->
+    <div class="bg-white rounded-xl shadow p-6 mb-6">
+      <h3 class="text-lg font-semibold mb-4 text-gray-700">Gaz quyish</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Pistolet</label>
+          <select id="selPistolet" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"></select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Gaz turi</label>
+          <select id="selGasType" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"></select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Preset turi</label>
+          <select id="selPresetType" class="w-full border rounded-lg px-3 py-2 text-sm" onchange="updatePresetLabel()">
+            <option value="full">To'liq tank</option>
+            <option value="liters">Litr bo'yicha</option>
+            <option value="money">Pul bo'yicha</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1" id="presetLabel">Miqdor</label>
+          <input id="inpPreset" type="number" step="0.01" placeholder="0"
+            class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">To'lov turi</label>
+          <select id="selPayment" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="cash">Naqd pul</option>
+            <option value="bank">Bank kartasi</option>
+            <option value="talon">Talon</option>
+            <option value="partner">Hamkor (kredit)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Avtomobil raqami</label>
+          <input id="inpCarNumber" type="text" placeholder="01A123AA"
+            class="w-full border rounded-lg px-3 py-2 text-sm uppercase">
+        </div>
+        <div class="col-span-2 flex items-end">
+          <button onclick="startDispense()" id="btnStart"
+            class="bg-green-600 hover:bg-green-700 text-white font-bold px-8 py-2 rounded-lg mr-3 transition">
+            ▶ Boshlash
+          </button>
+          <button onclick="stopDispense()" id="btnStop"
+            class="bg-red-500 hover:bg-red-600 text-white font-bold px-8 py-2 rounded-lg transition hidden">
+            ■ To'xtatish
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSACTION LOG -->
+    <div class="bg-white rounded-xl shadow p-4">
+      <h3 class="text-sm font-semibold text-gray-600 mb-3">Oxirgi tranzaksiyalar</h3>
+      <div id="txLog" class="space-y-2 text-sm">
+        <p class="text-gray-400 text-center py-4">Tranzaksiyalar yo'q</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHIFT TAB -->
+  <div id="tab-shift-content" class="p-6 hidden">
+    <div class="max-w-lg">
+      <div id="shiftStatus" class="bg-white rounded-xl shadow p-6 mb-4">
+        <h3 class="text-lg font-semibold mb-4">Smena holati</h3>
+        <div id="shiftInfo" class="text-gray-500">Yuklanmoqda...</div>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="openShift()" id="btnOpenShift"
+          class="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-3 rounded-lg">
+          Smena ochish
+        </button>
+        <button onclick="closeShiftConfirm()" id="btnCloseShift"
+          class="bg-red-500 hover:bg-red-600 text-white font-bold px-6 py-3 rounded-lg hidden">
+          Smena yopish
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORT TAB -->
+  <div id="tab-report-content" class="p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-6">
+      <h3 class="text-lg font-semibold mb-4">Joriy smena hisoboti</h3>
+      <button onclick="loadCurrentReport()"
+        class="bg-blue-600 text-white px-4 py-2 rounded-lg mb-4">
+        Yangilash
+      </button>
+      <div id="reportContent" class="text-gray-500">Hisobot yuklanmagan</div>
+    </div>
+  </div>
+
+  <!-- ADMIN TAB -->
+  <div id="tab-admin-content" class="p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-6 max-w-lg">
+      <h3 class="text-lg font-semibold mb-4">Narxlarni yangilash</h3>
+      <div id="priceList" class="space-y-3"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-60 items-center justify-center z-50 hidden">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-96">
+    <h3 class="text-xl font-bold mb-4 text-gray-800">To'lov</h3>
+    <div id="paymentInfo" class="bg-gray-50 rounded-lg p-4 mb-4 text-sm space-y-1"></div>
+    <div class="mb-3">
+      <label class="block text-xs text-gray-500 mb-1">Naqd pul (so'm)</label>
+      <input id="payModalCash" type="number" step="100" placeholder="0"
+        class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400">
+    </div>
+    <div class="mb-4">
+      <label class="block text-xs text-gray-500 mb-1">Bank kartasi (so'm)</label>
+      <input id="payModalBank" type="number" step="100" placeholder="0"
+        class="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400">
+    </div>
+    <div class="flex gap-3">
+      <button onclick="confirmPayment()"
+        class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg">
+        ✓ Tasdiqlash
+      </button>
+      <button onclick="closePaymentModal()"
+        class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-lg">
+        Bekor
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="src/app.js"></script>
+</body>
+</html>

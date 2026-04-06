@@ -1,0 +1,215 @@
+DELETE FROM 
+DELETE FROM tabChange          WHERE [EndDateTime] <= #
+DELETE FROM tabGasHistory        WHERE [Date]     <= #
+DELETE FROM tabGoodsHistory      WHERE [DateTime] <= #
+DELETE FROM tabGoodsPriceHistory WHERE [DateTime] <= #
+DELETE FROM tabMainData WHERE Article = 
+DELETE FROM tabMainData WHERE ChangeID = 
+DELETE FROM tabMainDataHistory WHERE DataID = 
+DELETE FROM tabMainDataHistory WHERE [DateTime]    <= #
+DELETE FROM tabPartnerInHistory  WHERE [DateTime] <= #
+DELETE FROM tabPartnerOutHistory WHERE [DateTime] <= #
+DELETE FROM tabPriceHistory      WHERE [DateTime] <= #
+DELETE FROM tabStorage WHERE GasID = 
+DELETE FROM tabSummCounters    WHERE [EndDateTime] <= #
+DELETE FROM tabTRK WHERE CisternID = 
+DELETE FROM tabTRK;
+DeleteBtnClick
+INSERT INTO 
+INSERT INTO tabCardTypes (CTName) VALUES ('
+INSERT INTO tabChange                          (StartDateTime, EndDateTime, OperatorID,                          ClosedFlag, CloseType, OpenCounter, SYNC)                      VALUES ('
+INSERT INTO tabErrors (ErrorName) VALUES ('
+INSERT INTO tabGasHistory                      (ChangeID, CisternID, StartGasLevel, StartWaterLevel, StartLiters,                       EndGasLevel, EndWaterLevel, EndLiters, AddLiters, [Date],                       OperatorID, Density, Temperature, NumAuto, ExpeditorName,                       SalerName, NumDocum, DateDocum, GasMetan, SYNC)                  VALUES (
+INSERT INTO tabGasType (Num, GasID, GasName, CheckName, Price, Discount1, Discount2, Discount3, MTaxTypes)                    VALUES (10, 10, '', '', 0, 0, 0, 0, '--------')
+INSERT INTO tabGasTypeOffice (Num, GasID, GasName, CheckName, Price, Discount1, Discount2, Discount3, MTaxTypes, SYNC)                    VALUES (10, 10, '', '', 0, 0, 0, 0, '--------', true)
+INSERT INTO tabGoodsHistory             (GoodsID, Article, Divided, Amount, OperatorID, ChangeID, Comment, [DateTime])              VALUES (
+INSERT INTO tabGoodsPriceHistory (GoodsID, Article,                          Divided, Enabled, Price, Discount, OperatorID, ChangeID, [DateTime])                         VALUES (
+INSERT INTO tabGoodsPriceHistory (GoodsID, Article,                      Divided, Price, Discount, OperatorID, ChangeID, [DateTime])                     VALUES (
+INSERT INTO tabGoodsPriceHistory (GoodsID, Article,                  Divided, Enabled, Price, Discount, OperatorID, ChangeID, [DateTime])                 VALUES (
+INSERT INTO tabLevelMeters (CisternID, LevMetType, LMName, SerialNum, ZeroOffset, [DateTime]) VALUES (
+INSERT INTO tabLevelMeters (CisternID, LevMetType, LMName, ZeroOffset, SerialNum, [DateTime]) VALUES (
+INSERT INTO tabMainData                                 (ChangeID, GasID, GasMetan, CisternID, PartnerID, OperationID,                                 Liters, WaterLevel, EndCode, OperatorID, [DateTime], SYNC, MGasLevel, MWaterLevel)                                  VALUES (
+INSERT INTO tabMainData                            (ChangeID, EndCode, OperationID, OperatorID, [DateTime], Count, Article, SYNC)                              VALUES (0, 
+INSERT INTO tabMainData                            (GasID, GasMetan, CisternID, PartnerID, ChangeID,                            EndCode, OperationID, Liters, WaterLevel, [DateTime], SYNC)                             VALUES (
+INSERT INTO tabMainData                         (ChangeID, GasID, GasMetan, CisternID, PartnerID, OperationID,                         Liters, WaterLevel, EndCode, OperatorID, [DateTime], SYNC)                          VALUES (
+INSERT INTO tabMainData                         (ChangeID, PartnerID, OperationID, Count, Article, MoneyBank, Price, Discount1, Discount2, OperatorID, [DateTime], CheckID, EndCode, SYNC)                          VALUES (
+INSERT INTO tabMainData                         (ChangeID, PartnerID, OperationID, Count, Article, MoneyCash, Price, Discount1, Discount2, OperatorID, [DateTime], CheckID, EndCode, SYNC)                          VALUES (
+INSERT INTO tabMainData                         (ChangeID, PartnerID, OperationID, Count, Article, MoneyFut, Price, Discount1, Discount2, OperatorID, [DateTime], CheckID, EndCode, SYNC)                          VALUES (
+INSERT INTO tabMainData                     (ChangeID, GasID, GasMetan, CisternID, PartnerID, OperationID,                     Liters, WaterLevel, EndCode, OperatorID, [DateTime], SYNC, MGasLevel, MWaterLevel)                      VALUES (
+INSERT INTO tabMainData                     (ChangeID, GasID, GasMetan, CisternID, PartnerID, OperationID, PistoletID,                      OrderLiters, OrderMoney, Liters, MoneyCash, Price, Discount1, Discount2,                      Debet, Credit, WaterLevel, EndCode, OperatorID, [DateTime], SYNC)                      VALUES (
+INSERT INTO tabMainData                  (ChangeID, EndCode, OperationID, GasID, GasMetan, PartnerID, CisternID, Liters, WaterLevel, OperatorID, [DateTime], SYNC, MGasLevel, MWaterLevel)              VALUES (
+INSERT INTO tabMainData                 (ChangeID, GasID, GasMetan, PartnerID, OperationID, MoneyCash,                  MoneyBank, MoneyTalon, MoneyFut, Debet, EndCode, OperatorID,                  CasseID, [DateTime], SYNC, CardNumber) VALUES (
+INSERT INTO tabMainData                 (ChangeID, OperationID, MoneyCash, PartnerID, GasID, GasMetan,                  EndCode, OperatorID, [DateTime], SYNC)                  VALUES (
+INSERT INTO tabMainData                 (ChangeID, OperationID, MoneyCash, PartnerID, GasID, GasMetan,                 EndCode, OperatorID, [DateTime], SYNC)                  VALUES (
+INSERT INTO tabMainData                ( OperatorID, PartnerID, ChangeID, EndCode, OperationID, [DateTime])                  VALUES (
+INSERT INTO tabMainData                (ChangeID, EndCode, OperationID, OperatorID, [DateTime], Count, Article, SYNC)                  VALUES (
+INSERT INTO tabMainData                (GasID, GasMetan, CisternID, PartnerID, ChangeID, EndCode, OperationID, Liters, WaterLevel, [DateTime], SYNC)                 VALUES (
+INSERT INTO tabMainData              (ChangeID, PartnerID, OperationID, EndCode, OperatorID,              [DateTime], SYNC, CardNumber) VALUES (
+INSERT INTO tabMainData             (ChangeID, EndCode, OperationID, Count, Article, OperatorID, [DateTime], SYNC)              VALUES (
+INSERT INTO tabMainData             (ChangeID, GasID, GasMetan, CisternID, PartnerID, OperationID, PistoletID,              OrderLiters, OrderMoney, Liters, MoneyCash, MoneyTalon, MoneyBank, MoneyFut,              Price, Discount1, Discount2, Debet, Credit, WaterLevel, EndCode, Kbrd, OperatorID,              CasseID, [DateTime], SYNC, CarNumber, CardNumber) VALUES (
+INSERT INTO tabMainData            (GasID, GasMetan, CisternID, PartnerID, ChangeID, EndCode, OperationID, MoneyCash, MoneyTalon, MoneyBank, MoneyFut, [DateTime], SYNC)              VALUES (0, 0, 0, 0, 0, 
+INSERT INTO tabMainData            (GasID, GasMetan, CisternID, PartnerID, EndCode, OperationID, MoneyCash, [DateTime], SYNC)              VALUES (0, 0, 0, 0, 
+INSERT INTO tabMainData (ChangeID, EndCode, OperationID, OperatorID, [DateTime], Count, Article, SYNC) VALUES (0, 
+INSERT INTO tabMainData (GasID, GasMetan, PartnerID, ChangeID, EndCode, OperationID, Debet, Credit, [DateTime], SYNC) VALUES (
+INSERT INTO tabMainData SELECT * FROM tabMainDataHistory WHERE DataID = 
+INSERT INTO tabMainDataHistory                            (DataID, ChangeID, EndCode, OperationID, OperatorID, [DateTime], Count, Article)                              VALUES (
+INSERT INTO tabMainDataHistory                (DataID, GasID, GasMetan, CisternID, PartnerID, ChangeID, EndCode, OperationID, Liters, WaterLevel, [DateTime])                 VALUES (
+INSERT INTO tabMainDataHistory            (DataID, GasID, GasMetan, CisternID, PartnerID, ChangeID, EndCode, OperationID, MoneyCash, MoneyTalon, MoneyBank, MoneyFut, [DateTime])              VALUES (
+INSERT INTO tabMainDataHistory SELECT * FROM tabMainData WHERE ChangeID = 
+INSERT INTO tabOperation (Name) VALUES ('
+INSERT INTO tabOperator (OperatorID, Name, Password, Address, Phone, [Date], Type)                    VALUES (12, '
+INSERT INTO tabOperatorOffice (OperatorID, Name, Password, Address, Phone, [Date], Type)                    VALUES (12, '
+INSERT INTO tabOperatorType (TypeName) VALUES ('
+INSERT INTO tabPartner (Name, Enabled, [DateTime], OperatorID) VALUES ('
+INSERT INTO tabPartnerAccount                             (PartnerID, GasID, Debet, Credit, [DateTime]) VALUES (
+INSERT INTO tabPartnerAccount                     (PartnerID, GasID, Debet, Credit, [DateTime]) VALUES (
+INSERT INTO tabPartnerInHistory                             (PartnerID, GasID, DataID, ChangeID,                            Debet, Credit, OperatorID, [DateTime]) VALUES (
+INSERT INTO tabPartnerInHistory                 (PartnerID, CardID, GasID, DataID, ChangeID,                Debet, Credit, OperatorID, [DateTime]) VALUES (
+INSERT INTO tabPartnerOffice (PartnerID, Name) VALUES (
+INSERT INTO tabPartnerOutHistory                                 (PartnerID, CardID, GasID, DataID, ChangeID,                                Debet, Credit, OperatorID, [DateTime]) VALUES (
+INSERT INTO tabPartnerOutHistory                             (PartnerID, CardID, GasID, DataID, ChangeID,                            Debet, Credit, OperatorID, [DateTime]) VALUES (
+INSERT INTO tabPriceHistory                       (GasID, Price, Discount1, Discount2, Discount3, [DateTime], OperatorID)                  VALUES (
+INSERT INTO tabPriceHistory (             GasID,              Price,              Discount1,              Discount2,              Discount3,              [DateTime],              OperatorID)              VALUES (
+INSERT INTO tabSchema (SchName, SchData) VALUES ('
+INSERT INTO tabSchema (SchName, SchData) VALUES ('', '')
+INSERT INTO tabSchemaOffice (SchName, SchData) VALUES ('
+INSERT INTO tabSchemaOffice (SchName, SchData) VALUES ('', '')
+INSERT INTO tabStorage (CisternID, GasID, Volume, [Date], OperatorID, SYNC) VALUES (
+INSERT INTO tabSummCounters (ChangeID, PistNum, EndDateTime, BeginCounter, EndCounter, SYNC)                                      VALUES (
+INSERT INTO tabTRK (                                   TRKID,                                           CisternID,                                       PistoletID,                                      Half,                                            HorPos,                                          VerPos,                                          MPort,                                           MBaud,                                           MUseCnt,                                         MUseAvaP,                                        MImpuls,                                         MMaxCnt)                                  VALUES (
+INSERT INTO tabTaxsTypes (Name) VALUES ('
+InsertState
+SELECT * FROM 
+SELECT * FROM tabCardTypes
+SELECT * FROM tabChange WHERE ChangeID = 
+SELECT * FROM tabCistern
+SELECT * FROM tabLevelMeters WHERE CisternID = 
+SELECT * FROM tabMainData WHERE DataID = 
+SELECT * FROM tabMainData WHERE GasID = 
+SELECT * FROM tabPartnerAccount WHERE PartnerID = 
+SELECT * FROM tabStorage ORDER BY CisternID
+SELECT * FROM tabStorage WHERE GasID = 
+SELECT * FROM tabTRK ORDER BY PistoletID
+SELECT * FROM tabTaxsTypes
+SELECT * FROM tabVersion
+SELECT -Sum(Liters) AS SNCLiters                  FROM tabMainData                  WHERE  PistoletID = 
+SELECT -Sum(Liters)/100 as SLiters                           FROM  tabMainData                      WHERE GasID       = 
+SELECT -Sum(Liters)/100 as SLiters                       FROM  tabMainData                  WHERE ChangeID    = 
+SELECT Article, Name, Price as SPrice, Discount/100 as SDiscount, GoodsID, Divided, BarCode FROM 
+SELECT Article, Sum(Count) AS SCount                     FROM tabMainData                     WHERE (OperationID=
+SELECT Article, Sum(Count) AS SCount                     FROM tabMainDataHistory                     WHERE (OperationID=
+SELECT BeginCounter, EndCounter FROM tabSummCounters WHERE ChangeID = 
+SELECT CarID, CarNumber, CarType             FROM   
+SELECT Cnt FROM tabGasHistory              WHERE tabGasHistory.[Date] >= #
+SELECT DataID FROM tabMainData                          WHERE Article =     
+SELECT DataID FROM tabMainData                  WHERE CisternID =   
+SELECT DataID FROM tabMainData              WHERE PartnerID = 0 AND GasID = 0 AND CisternID = 0 AND OperationID = 
+SELECT DataID FROM tabMainData WHERE OperationID = 
+SELECT DataID FROM tabMainData WHERE PartnerID = 
+SELECT DataID FROM tabMainDataHistory                          WHERE Article =     
+SELECT DataID FROM tabMainDataHistory                  WHERE CisternID =   
+SELECT DataID FROM tabMainDataHistory              WHERE PartnerID = 0 AND GasID = 0 AND CisternID = 0 AND OperationID = 
+SELECT DataID FROM tabPartnerInHistory              WHERE [DateTime] >= #
+SELECT DataID FROM tabPartnerOutHistory              WHERE [DateTime] >= #
+SELECT Debet as SDeebt,                                     Credit as SCredit                              FROM   tabPartnerAccount                              WHERE  PartnerID = 
+SELECT GasMetan FROM 
+SELECT GoodsID, Name, Price as SPrice, Discount/100 as SDiscount, Article, BarCode, Taxes, Divided, Enabled FROM 
+SELECT Liters FROM 
+SELECT Max(ChangeID) AS MaxNum FROM tabChange
+SELECT Max(CheckID) as MCheckID FROM tabMainData
+SELECT Max(DataID) as MDataID FROM tabMainData
+SELECT Max(DataID) as MDataID FROM tabMainData WHERE CasseID = 
+SELECT Max(DataID) as MDataID FROM tabMainData WHERE PistoletID = 
+SELECT Max(DataID) as MDataID FROM tabMainDataHistory WHERE CasseID = 
+SELECT Max(GasID) as MaxGasID FROM 
+SELECT Max(GoodsID) as MGoodsID FROM 
+SELECT Max(Num) AS MaxNum FROM 
+SELECT Max(PartnerID) AS MPartnerID FROM 
+SELECT Max(TaxID) AS MaxNum FROM 
+SELECT Max(Volume) AS MaxVolume FROM 
+SELECT Max([DateTime]) AS MaxDate, Min([DateTime]) AS MinDate FROM tabGoodsHistory
+SELECT Max([DateTime]) AS MaxDate, Min([DateTime]) AS MinDate FROM tabGoodsPriceHistory
+SELECT Max([DateTime]) AS MaxDate, Min([DateTime]) AS MinDate FROM tabPriceHistory
+SELECT Max([DateTime]) AS MaxDateTime FROM tabMainData
+SELECT Max([Date]) AS MaxDate, Min([Date]) AS MinDate FROM tabGasHistory WHERE GasMetan <> 
+SELECT Num, GasID, GasName,     CheckName, Price as SPrice, Discount1/100 as SDiscount1,     Discount2/100 as SDiscount2, Discount3/100 as SDiscount3, GasMetan, MTaxTypes     FROM 
+SELECT PartnerID, Name FROM 
+SELECT PartnerID, Name, Address, Phone  FROM 
+SELECT PartnerID, Name, Address, Phone FROM 
+SELECT SchData FROM 
+SELECT Sum(Liters) as SLiters                              FROM  tabMainData                              WHERE CisternID =  
+SELECT Sum(MoneyBank) as SMoney                           FROM  tabMainData                      WHERE ChangeID    = 
+SELECT Sum(MoneyBank) as SMoney                           FROM  tabMainData                      WHERE GasID       = 
+SELECT Sum(MoneyBank) as SMoney                  FROM  tabMainData                  WHERE ChangeID    = 
+SELECT Sum(MoneyCash)  as SMoneyCash FROM tabMainData              WHERE  ChangeID =     
+SELECT Sum(MoneyCash)  as SMoneyCash,                    Sum(MoneyTalon) as SMoneyTalon,                    Sum(MoneyBank)  as SMoneyBank,                    Sum(MoneyFut)   as SMoneyFut              FROM   tabMainDataHistory              WHERE  [DateTime] <= #
+SELECT Sum(MoneyCash) as SMoney                           FROM  tabMainData                      WHERE ChangeID    = 
+SELECT Sum(MoneyCash) as SMoney                           FROM  tabMainData                      WHERE GasID       = 
+SELECT Sum(MoneyCash) as SMoney                     FROM   tabMainData                     WHERE  ChangeID <= 
+SELECT Sum(MoneyCash) as SMoney                  FROM  tabMainData
+SELECT Sum(MoneyCash) as SMoney                  FROM  tabMainData                  WHERE ChangeID    = 
+SELECT Sum(MoneyCash) as SMoney                 FROM   tabMainData                 WHERE  ChangeID <= 
+SELECT Sum(MoneyCash) as SMoney              FROM   tabMainData              WHERE  Article = 
+SELECT Sum(MoneyCash) as SMoney              FROM  tabMainData              WHERE OperationID = 
+SELECT Sum(MoneyCash) as SMoney             FROM   tabMainData             WHERE  ChangeID <= 
+SELECT Sum(MoneyFut) as SMoney                           FROM  tabMainData                      WHERE ChangeID    = 
+SELECT Sum(MoneyFut) as SMoney                           FROM  tabMainData                      WHERE GasID       = 
+SELECT Sum(MoneyFut) as SMoney                  FROM  tabMainData                  WHERE ChangeID    = 
+SELECT Sum(WaterLevel) as SWaterLevel,                                     Sum(Liters)/100 as SLiters                                   FROM  tabMainData                              WHERE CisternID =  
+SELECT Sum(WaterLevel) as SWaterLevel,              Sum(Liters)/100 as SLiters              FROM tabMainData              WHERE CisternID = 
+SELECT Sum(tabMainData.WaterLevel) as SWaterLevel,                                 Sum(tabMainData.Liters)/100 as SLiters                               FROM  tabMainData                          WHERE CisternID =  
+SELECT Sum(tabMainData.WaterLevel) as SWaterLevel,                         Sum(tabMainData.Liters)     as SLiters                       FROM  tabMainData                  WHERE CisternID =  
+SELECT Sum(tabMainDataHistory.WaterLevel) as SWaterLevel,                         Sum(tabMainDataHistory.Liters)     as SLiters                       FROM  tabMainDataHistory                  WHERE CisternID =  
+SELECT TaxID, Name, Percent as SPercent, TaxType, [DateTime] FROM 
+SELECT WaterLevel as SWaterLevel,                                 Liters/100 as SLiters                               FROM  tabMainData                          WHERE CisternID   =  
+SELECT tabChange.ChangeID, tabChange.StartDateTime,                    tabChange.EndDateTime, 
+SELECT tabStorage.CisternID,                    
+SELECT top 10 tabMainData.DataID, 
+SelectFirstItemOnLoad
+Selected
+SelectedColor
+SelectedDateBackLD
+SelectedDateForeLD
+SelectedImageIndex
+SelectedLD
+SelectionColorStartLD
+SelectionColorStopLD
+SelectionFrameColor,/h
+SelectionFrameColorLD
+SelectiveTextOnRight
+UPDATE tabChange SET                       EndDateTime = '
+UPDATE tabChange SET             OpenCounter = 
+UPDATE tabLevelMeters SET 
+UPDATE tabLevelMeters SET                 ZeroOffset = 0, LevMetType = 0, LMName = '
+UPDATE tabMainData SET                                     Count  = Count + 
+UPDATE tabMainData SET                              Liters   = -
+UPDATE tabMainData SET                             Liters     = Liters     + 
+UPDATE tabMainData SET                          Liters   = -
+UPDATE tabMainData SET                         MoneyCash  = MoneyCash + 
+UPDATE tabMainData SET                      ChangeID = 
+UPDATE tabMainData SET                      Liters   = -
+UPDATE tabMainData SET                     MoneyCash = MoneyCash + 
+UPDATE tabMainData SET                  ChangeID = 
+UPDATE tabMainData SET Article = 
+UPDATE tabMainData SET Count = 
+UPDATE tabMainData SET Debet  = Debet + 
+UPDATE tabMainData SET MGasLevel = 
+UPDATE tabMainDataHistory SET                                     Count  = Count + 
+UPDATE tabMainDataHistory SET                             Liters     = Liters     + 
+UPDATE tabMainDataHistory SET                         MoneyCash  = MoneyCash + 
+UPDATE tabPartnerAccount SET                          Debet   = 
+UPDATE tabPartnerAccount SET                      Debet =  
+UPDATE tabPartnerAccount SET                  Debet   = Debet  + 
+UPDATE tabPartnerOutHistory SET                          Debet    = 
+UPDATE tabPartnerOutHistory SET                      Debet    = 
+UPDATE tabStorage SET CisternID = 
+UPDATE tabStorage SET Volume = 
+UPDATE tabSummCounters SET EndCounter = 
+UPDATE tabTRK SET                                 MPort    = 
+UPDATE tabVersion SET AZSID = 
+UPDATE tabVersion SET VersionRelease = 0, VersionMajor = 2, VersionMinor = 0 WHERE Cnt = 1
+UPDATE tabVersion SET VersionRelease = 1 WHERE Cnt = 1
+UPDATE tabVersion SET VersionRelease = 2 WHERE Cnt = 1
+UPDATE tabVersion SET VersionRelease = 3 WHERE Cnt = 1
+UPDATE tabVersion SET VersionRelease = 4 WHERE Cnt = 1
+UpdateFont
